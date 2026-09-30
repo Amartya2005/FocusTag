@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.UserManager
 import android.view.WindowManager
 import com.focustag.app.data.service.FocusWatchdogService
+import com.focustag.app.domain.SchoolOwnedPolicy
 import com.focustag.app.domain.SessionLockStore
 import com.focustag.app.domain.UninstallBlockController
 
@@ -28,6 +29,7 @@ class FocusTagApp : Application() {
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
             override fun onActivityDestroyed(activity: Activity) {}
         })
+        if (SchoolOwnedPolicy.isOwner(this)) SchoolOwnedPolicy.applyBaseline(this)
         if (!SessionLockStore.isLocked(this)) return
         UninstallBlockController(this).setBlocked(true)
         val unlocked = getSystemService(UserManager::class.java)?.isUserUnlocked != false
