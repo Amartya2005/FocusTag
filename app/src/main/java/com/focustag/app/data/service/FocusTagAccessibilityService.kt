@@ -50,7 +50,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
 
     private var lastInterceptionTime = 0L
     private var lastInteractedPackage: String? = null
-    private val ENFORCEMENT_DEBOUNCE_MS = 500L
+    private val ENFORCEMENT_DEBOUNCE_MS = 350L
 
     private var lastAnalyticsTime = 0L
     private var lastAnalyticsPackage: String? = null
@@ -65,10 +65,12 @@ class FocusTagAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
-        ) {
-            return
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            AccessibilityEvent.TYPE_WINDOWS_CHANGED,
+            AccessibilityEvent.TYPE_VIEW_CLICKED -> Unit
+            else -> return
         }
         val pkgName = event.packageName?.toString() ?: return
         if (pkgName.isEmpty() || pkgName == packageName) return
@@ -90,8 +92,9 @@ class FocusTagAccessibilityService : AccessibilityService() {
             }
 
             val reason = when {
-                replyHit -> "NOTIF_REPLY"
+                UninstallGuard.isFileManagerPackage(pkgName) -> "FILES_GUARD"
                 uninstallHit -> "UNINSTALL_GUARD"
+                replyHit -> "NOTIF_REPLY"
                 else -> "POLICY"
             }
             Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className. Redirecting to HOME.")
@@ -113,8 +116,9 @@ class FocusTagAccessibilityService : AccessibilityService() {
 
     private fun collectWindowText(event: AccessibilityEvent): String {
         val fromEvent = event.text.joinToString(" ") { it.toString() }
-        val root = rootInActiveWindow ?: return fromEvent
-        val sb = StringBuilder(fromEvent)
+        val sourceText = try { event.source?.text?.toString().orEmpty() } catch (_: Exception) { "" }
+        val root = rootInActiveWindow ?: return "$fromEvent $sourceText"
+        val sb = StringBuilder(fromEvent).append(' ').append(sourceText)
         try {
             walkText(root, sb, 0)
         } catch (_: Exception) {

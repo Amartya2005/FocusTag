@@ -1,11 +1,12 @@
 package com.focustag.app.domain
 
 /**
- * Pilot uninstall lock while FOCUS_ACTIVE / ACS armed.
+ * Session-armed uninstall lock.
  *
- * Device Owner [DevicePolicyManager.setUninstallBlocked] is the only OS-true block.
- * That path stays parked unless the device is already DO. This guard is the ACS
- * fail-closed intercept for Settings app-info and the system package installer.
+ * Device Owner setUninstallBlocked is the only OS-true block and stays optional.
+ * While ACS is armed we bounce every known uninstall surface: package installer,
+ * Settings app-info, Files by Google / DocumentsUI / OEM file managers, and any
+ * window that pairs the FocusTag label with Uninstall / Remove / Delete app.
  */
 object UninstallGuard {
 
@@ -26,7 +27,29 @@ object UninstallGuard {
         "com.android.settings.intelligence"
     )
 
-    val alwaysBlockedPackages: Set<String> = installerPackages
+    /** Nothing 3a ships Files by Google. Block the whole app during class. */
+    val fileManagerPackages: Set<String> = setOf(
+        "com.google.android.apps.nbu.files",
+        "com.android.documentsui",
+        "com.google.android.documentsui",
+        "com.android.providers.downloads.ui",
+        "com.nothing.files",
+        "com.nothing.documentsui",
+        "com.sec.android.app.myfiles",
+        "com.mi.android.globalFileexplorer",
+        "com.android.fileexplorer",
+        "com.coloros.filemanager",
+        "com.oneplus.filemanager",
+        "com.asus.filemanager",
+        "com.huawei.hidisk",
+        "com.mediatek.filemanager",
+        "nextapp.fx",
+        "com.lonelycatgames.Xplore",
+        "com.mixplorer",
+        "org.openintents.filemanager"
+    )
+
+    val alwaysBlockedPackages: Set<String> = installerPackages + fileManagerPackages
 
     private val uninstallClassHints = listOf(
         "UninstallerActivity",
@@ -38,14 +61,29 @@ object UninstallGuard {
         "ApplicationDetails",
         "InstalledAppDetailsTop",
         "PackageInstallerActivity",
-        "DeleteStagedFile"
+        "DeleteStagedFile",
+        "UninstallAction",
+        "AppInfoActivity"
     )
 
     private val accessibilityClassHints = listOf(
         "AccessibilitySettings",
         "AccessibilityService",
         "ToggleAccessibilityServicePreferenceFragment",
-        "AccessibilityDetailsSettingsFragment"
+        "AccessibilityDetailsSettingsFragment",
+        "NotificationAccessSettings"
+    )
+
+    private val uninstallPhrases = listOf(
+        "uninstall",
+        "un-install",
+        "remove app",
+        "delete app",
+        "delete this app",
+        "remove this app",
+        "do you want to uninstall",
+        "uninstall app",
+        "app info"
     )
 
     fun isInstallerPackage(packageName: String): Boolean =
@@ -54,9 +92,9 @@ object UninstallGuard {
     fun isSettingsPackage(packageName: String): Boolean =
         settingsPackages.contains(packageName)
 
-    /**
-     * @param windowText concatenated visible text / contentDescription from the active window.
-     */
+    fun isFileManagerPackage(packageName: String): Boolean =
+        fileManagerPackages.contains(packageName)
+
     fun shouldIntercept(
         packageName: String,
         className: String?,
@@ -70,19 +108,17 @@ object UninstallGuard {
         val text = windowText.orEmpty()
         val mentionsSelf = text.contains(selfPackage, ignoreCase = true) ||
             text.contains(selfLabel, ignoreCase = true)
+        val looksLikeUninstall = uninstallPhrases.any { text.contains(it, ignoreCase = true) } ||
+            cls.contains("Uninstall", ignoreCase = true)
 
-        if (isInstallerPackage(packageName)) {
-            if (text.isBlank()) return true
-            if (mentionsSelf) return true
-            return text.contains("uninstall", ignoreCase = true) ||
-                cls.contains("Uninstall", ignoreCase = true)
-        }
+        if (isFileManagerPackage(packageName)) return true
+        if (isInstallerPackage(packageName)) return true
 
         if (isSettingsPackage(packageName)) {
             if (uninstallClassHints.any { cls.contains(it, ignoreCase = true) }) return true
             if (accessibilityClassHints.any { cls.contains(it, ignoreCase = true) }) return true
             if (mentionsSelf && (
-                    text.contains("uninstall", ignoreCase = true) ||
+                    looksLikeUninstall ||
                         text.contains("disable", ignoreCase = true) ||
                         text.contains("force stop", ignoreCase = true) ||
                         text.contains("accessibility", ignoreCase = true)
@@ -92,9 +128,7 @@ object UninstallGuard {
             }
         }
 
-        // Launcher drop-target / long-press uninstall chip on Nothing / Pixel launchers.
-        if (mentionsSelf && text.contains("uninstall", ignoreCase = true)) return true
-
+        if (mentionsSelf && looksLikeUninstall) return true
         return false
     }
 }
