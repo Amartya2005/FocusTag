@@ -38,7 +38,6 @@ import com.focustag.app.data.repository.SupabaseTeacherRepository
 import com.focustag.app.data.supabase.SupabaseModule
 import com.focustag.app.data.worker.SyncScheduler
 import com.focustag.app.domain.EnforcementCoordinatorHub
-import com.focustag.app.domain.TagLinkParser
 import com.focustag.app.ui.admin.AdminScreen
 import com.focustag.app.ui.apps.AppSelectionScreen
 import com.focustag.app.ui.apps.AppSelectionViewModel
@@ -66,6 +65,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var nfcController: NfcController
     private var activeFocusViewModel: FocusViewModel? = null
+    private var pendingTagUid: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -157,6 +157,13 @@ class MainActivity : ComponentActivity() {
                     } else null
 
                     activeFocusViewModel = focusViewModel
+                    LaunchedEffect(focusViewModel) {
+                        val pending = pendingTagUid ?: return@LaunchedEffect
+                        if (focusViewModel != null) {
+                            pendingTagUid = null
+                            focusViewModel.onTagEvent(pending)
+                        }
+                    }
                     val focusSessionState by focusViewModel?.focusState?.collectAsState(initial = FocusSessionState()) ?: remember { mutableStateOf(FocusSessionState()) }
                     val isFocusActive = focusSessionState.focusState == FocusState.FOCUS_ACTIVE
 
@@ -217,7 +224,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                     "teacher_classes" -> teacherViewModel?.let {
-                                        TeacherClassesScreen(viewModel = it, onClassClick = { cls -> it.selectClass(cls); currentScreen = "teacher_roster" }, onBack = { currentScreen = "home" })
+                                        TeacherClassesScreen(viewModel = it, onClassClick = { cls -> it.selectClass(cls); currentScreen = "teacher_classes"; currentScreen = "teacher_roster" }, onBack = { currentScreen = "home" })
                                     }
                                     "teacher_roster" -> teacherViewModel?.let {
                                         ClassRosterScreen(viewModel = it, onBack = { it.clearSelection(); currentScreen = "teacher_classes" })
@@ -255,7 +262,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        nfcController.enableReaderMode { tagId -> lifecycleScope.launch(Dispatchers.Main) { activeFocusViewModel?.onTagEvent(tagId) } }
+        nfcController.enableReaderMode { tagId -> deliverTag(tagId) }
     }
 
     override fun onPause() {
@@ -270,10 +277,19 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent == null) return
+        setIntent(intent)
         SupabaseModule.client.handleDeeplinks(intent)
-        val data = intent.data ?: return
-        val uid = TagLinkParser.extractUid(data.toString()) ?: return
-        Log.d("MainActivity", "Deep-link tag UID resolved")
-        lifecycleScope.launch(Dispatchers.Main) { activeFocusViewModel?.onTagEvent(uid) }
+        val uid = nfcController.uidFromIntent(intent) ?: return
+        Log.d("MainActivity", "Tag UID from launch intent")
+        deliverTag(uid)
+    }
+
+    private fun deliverTag(uid: String) {
+        val vm = activeFocusViewModel
+        if (vm != null) {
+            lifecycleScope.launch(Dispatchers.Main) { vm.onTagEvent(uid) }
+        } else {
+            pendingTagUid = uid
+        }
     }
 }
