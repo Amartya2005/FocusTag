@@ -16,6 +16,7 @@ data class ProfileUiState(
     val email: String = "",
     val name: String = "",
     val role: String = "student",
+    val institutionId: String? = null,
     val isLoading: Boolean = false,
     val isEditing: Boolean = false,
     val errorMessage: String? = null
@@ -38,7 +39,8 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
                         it.copy(
                             isLoading = false, 
                             name = profile.name ?: "",
-                            role = profile.role
+                            role = profile.role,
+                            institutionId = profile.institutionId
                         ) 
                     }
                 } else {
