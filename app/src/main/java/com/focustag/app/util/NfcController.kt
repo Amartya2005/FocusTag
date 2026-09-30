@@ -1,17 +1,17 @@
 package com.focustag.app.util
 
 import android.app.Activity
+import android.content.Intent
+import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
+import android.nfc.Tag
+import android.os.Build
 import android.util.Log
+import com.focustag.app.domain.NfcProtocol
+import com.focustag.app.domain.TagLinkParser
 
-/**
- * Pack 2/4 NFC reader.
- * HID dedupe only (250–500ms). Start/release debounce lives in FocusViewModel
- * and is stamped only after server `tap_focus` accept.
- */
 class NfcController(
     private val activity: Activity,
-    /** Unused for debounce; kept for call-site compatibility. */
     private val isFocusActive: () -> Boolean = { false }
 ) {
 
@@ -27,30 +27,15 @@ class NfcController(
     private var lastTagId: String? = null
     private var lastTagTimestamp: Long = 0L
 
-    fun isNfcEnabled(): Boolean {
-        return nfcAdapter?.isEnabled == true
-    }
-
-    fun isNfcAvailable(): Boolean {
-        return nfcAdapter != null
-    }
+    fun isNfcEnabled(): Boolean = nfcAdapter?.isEnabled == true
+    fun isNfcAvailable(): Boolean = nfcAdapter != null
 
     fun enableReaderMode(onTagDetected: (String) -> Unit) {
         nfcAdapter?.enableReaderMode(
             activity,
             { tag ->
                 val tagId = bytesToHex(tag.id)
-                val currentTime = System.currentTimeMillis()
-
-                synchronized(this) {
-                    if (tagId == lastTagId && (currentTime - lastTagTimestamp) < HID_DEDUPE_MS) {
-                        Log.d(TAG, "NFC HID dedupe: ignoring chatter $tagId")
-                        return@enableReaderMode
-                    }
-                    lastTagId = tagId
-                    lastTagTimestamp = currentTime
-                }
-
+                if (dedupe(tagId)) return@enableReaderMode
                 Log.d(TAG, "NFC tag detected: $tagId")
                 onTagDetected(tagId)
             },
@@ -63,7 +48,60 @@ class NfcController(
         nfcAdapter?.disableReaderMode(activity)
     }
 
-    private fun bytesToHex(bytes: ByteArray): String {
-        return bytes.joinToString("") { "%02X".format(it) }
+    fun uidFromIntent(intent: Intent?): String? {
+        if (intent == null) return null
+        val action = intent.action ?: return TagLinkParser.extractUid(intent.data?.toString())
+        if (action != NfcAdapter.ACTION_TAG_DISCOVERED &&
+            action != NfcAdapter.ACTION_TECH_DISCOVERED &&
+            action != NfcAdapter.ACTION_NDEF_DISCOVERED &&
+            action != Intent.ACTION_VIEW
+        ) {
+            return TagLinkParser.extractUid(intent.data?.toString())
+        }
+        TagLinkParser.extractUid(intent.data?.toString())?.let { return it }
+        extractNdefUid(intent)?.let { return it }
+        val tag = parcelTag(intent) ?: return null
+        return NfcProtocol.normalize(bytesToHex(tag.id))
     }
+
+    private fun extractNdefUid(intent: Intent): String? {
+        val raw = if (Build.VERSION.SDK_INT >= 33) {
+            intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES, NdefMessage::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
+        } ?: return null
+        raw.filterIsInstance<NdefMessage>().forEach { msg ->
+            msg.records.forEach { record ->
+                val payload = runCatching { String(record.payload) }.getOrNull() ?: return@forEach
+                TagLinkParser.extractUid(payload)?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun parcelTag(intent: Intent): Tag? {
+        return if (Build.VERSION.SDK_INT >= 33) {
+            intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
+        }
+    }
+
+    private fun dedupe(tagId: String): Boolean {
+        val currentTime = System.currentTimeMillis()
+        synchronized(this) {
+            if (tagId == lastTagId && (currentTime - lastTagTimestamp) < HID_DEDUPE_MS) {
+                Log.d(TAG, "NFC HID dedupe: ignoring chatter $tagId")
+                return true
+            }
+            lastTagId = tagId
+            lastTagTimestamp = currentTime
+        }
+        return false
+    }
+
+    private fun bytesToHex(bytes: ByteArray): String =
+        bytes.joinToString("") { "%02X".format(it) }
 }
