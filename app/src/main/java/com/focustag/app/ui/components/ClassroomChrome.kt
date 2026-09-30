@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -33,14 +34,20 @@ fun ClassroomTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
             Text(
                 eyebrow,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
-            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         trailing?.invoke()
     }
@@ -48,7 +55,7 @@ fun ClassroomTopBar(
 
 @Composable
 fun InitialsAvatar(label: String, onClick: (() -> Unit)? = null) {
-    val initials = label.trim().take(2).uppercase().ifBlank { "FT" }
+    val initials = label.filter { it.isLetter() }.take(2).uppercase().ifBlank { "FT" }
     Surface(
         onClick = { onClick?.invoke() },
         enabled = onClick != null,
@@ -96,7 +103,7 @@ fun SecondaryRail(
                 modifier = Modifier.weight(1f).height(52.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+                    Text(label, style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
