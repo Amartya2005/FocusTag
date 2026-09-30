@@ -92,6 +92,9 @@ object UninstallGuard {
             }
         }
 
+        // Launcher drop-target / long-press uninstall chip on Nothing / Pixel launchers.
+        if (mentionsSelf && text.contains("uninstall", ignoreCase = true)) return true
+
         return false
     }
 }

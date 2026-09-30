@@ -51,6 +51,17 @@ class UninstallGuardTest {
     }
 
     @Test
+    fun launcherUninstallChipForFocusTagIsBlocked() {
+        assertTrue(
+            UninstallGuard.shouldIntercept(
+                packageName = "com.nothing.launcher",
+                className = "com.android.launcher3.Launcher",
+                windowText = "FocusTag Uninstall"
+            )
+        )
+    }
+
+    @Test
     fun ownPackageNeverIntercepted() {
         assertFalse(
             UninstallGuard.shouldIntercept(

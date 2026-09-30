@@ -140,8 +140,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        instance = this.takeIf { instance === it }.let { null }
-        instance = null
+        if (instance === this) instance = null
         super.onDestroy()
         Log.d(TAG, "FocusTag AccessibilityService destroyed")
     }

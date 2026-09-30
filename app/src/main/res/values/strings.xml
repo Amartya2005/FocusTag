@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">FocusTag</string>
-    <string name="accessibility_service_description">FocusTag uses Accessibility to enforce the classroom app policy after an NFC or QR check-in. It only watches app opens while a focus session is active.</string>
+    <string name="accessibility_service_description">FocusTag uses Accessibility to enforce the classroom app policy after an NFC or QR check-in. While a focus session is active it watches app opens and blocks Settings / package-installer screens that would uninstall FocusTag or turn the service off. It does nothing when no session is active.</string>
 </resources>
