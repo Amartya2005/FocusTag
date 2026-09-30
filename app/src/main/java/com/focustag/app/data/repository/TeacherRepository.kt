@@ -70,8 +70,6 @@ class SupabaseTeacherRepository : TeacherRepository {
     override suspend fun getMyClasses(): Result<List<TeacherClass>> {
         return try {
             Log.d(TAG, "Fetching classes for teacher")
-            // Join teacher_class_access -> classes -> locations
-            // Also fetch enrollment student IDs to get count
             val results = SupabaseModule.client.from("teacher_class_access")
                 .select(columns = Columns.raw("class_id, classes(id, name, location:locations(id, name), enrollments(student_id))"))
                 .decodeList<TeacherAccessDto>()
@@ -94,15 +92,12 @@ class SupabaseTeacherRepository : TeacherRepository {
     override suspend fun getClassRoster(classId: String): Result<List<RosterStudent>> {
         return try {
             Log.d(TAG, "Fetching roster for class...")
-            
-            // 1. Fetch class info to get location_id
             val classInfo = SupabaseModule.client.from("classes")
                 .select(columns = Columns.raw("id, location_id")) {
                     filter { eq("id", classId) }
                 }
                 .decodeSingle<ClassWithLocationIdDto>()
 
-            // 2. Fetch valid UIDs for that location
             val tags = SupabaseModule.client.from("nfc_tags")
                 .select(columns = Columns.raw("uid")) {
                     filter { 
@@ -113,27 +108,27 @@ class SupabaseTeacherRepository : TeacherRepository {
                 .decodeList<NfcUidDto>()
             val validUids = tags.map { it.uid }
 
-            // 3. Fetch enrolled students
             val enrollments = SupabaseModule.client.from("enrollments")
                 .select(columns = Columns.raw("student_id, profiles(name)")) {
                     filter { eq("class_id", classId) }
                 }
                 .decodeList<EnrollmentWithProfileDto>()
 
-            // 4. Fetch active sessions for these students at this location
-            // RLS will ensure the teacher only sees what they are authorized for
             val activeSessions = if (validUids.isNotEmpty()) {
                 SupabaseModule.client.from("focus_sessions")
-                    .select(columns = Columns.raw("user_id")) {
+                    .select(columns = Columns.raw("user_id, status, acs_health")) {
                         filter {
-                            eq("status", "IN_PROGRESS")
+                            isIn("status", listOf("FOCUS_ACTIVE", "active"))
                             isIn("tag_id", validUids)
                         }
                     }
-                    .decodeList<SessionSimpleDto>()
+                    .decodeList<SessionHealthDto>()
             } else emptyList()
 
-            val activeUserIds = activeSessions.map { it.userId }.toSet()
+            val activeUserIds = activeSessions
+                .filter { it.acsHealth.equals("HEALTHY", ignoreCase = true) }
+                .map { it.userId }
+                .toSet()
 
             val roster = enrollments.map { e ->
                 RosterStudent(
@@ -161,4 +156,11 @@ data class ClassWithLocationIdDto(
 @Serializable
 data class NfcUidDto(
     val uid: String
+)
+
+@Serializable
+data class SessionHealthDto(
+    @SerialName("user_id") val userId: String,
+    val status: String? = null,
+    @SerialName("acs_health") val acsHealth: String = "UNKNOWN"
 )
