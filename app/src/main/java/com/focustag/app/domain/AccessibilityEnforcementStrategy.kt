@@ -15,8 +15,9 @@ class AccessibilityEnforcementStrategy : EnforcementStrategy {
         val blockedPackages = snapshot.policies
             .filter { it.action == FocusAction.BLOCK }
             .map { it.appInfo.packageName }
-            .filter { it != "com.focustag.app" } // Defensive self-protection
-            .toSet()
+            .filter { it != UninstallGuard.SELF_PACKAGE }
+            .toMutableSet()
+            .apply { addAll(UninstallGuard.alwaysBlockedPackages) }
 
         val newState = AccessibilitySessionState(
             ownerUserId = snapshot.userId,
@@ -46,9 +47,11 @@ class AccessibilityEnforcementStrategy : EnforcementStrategy {
 
     override suspend fun reconcile(snapshot: EnforcementSnapshot, ledger: EnforcementLedger): EnforcementResult {
         val currentState = FocusTagAccessibilityService.sessionState.get()
-        if (currentState.isArmed && 
-            currentState.ownerUserId == snapshot.userId && 
-            currentState.sessionId == snapshot.sessionId) {
+        if (currentState.isArmed &&
+            currentState.ownerUserId == snapshot.userId &&
+            currentState.sessionId == snapshot.sessionId &&
+            currentState.blockedPackages.containsAll(UninstallGuard.alwaysBlockedPackages)
+        ) {
             return EnforcementResult.Success(ledger)
         }
         return apply(snapshot)
