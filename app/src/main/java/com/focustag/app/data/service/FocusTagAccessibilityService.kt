@@ -4,9 +4,11 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.focustag.app.FocusTagApp
 import com.focustag.app.data.repository.SessionHistoryRepository
 import com.focustag.app.domain.EnforcementCoordinatorHub
 import com.focustag.app.domain.NotificationReplyGuard
+import com.focustag.app.domain.SessionLockStore
 import com.focustag.app.domain.UninstallBlockController
 import com.focustag.app.domain.UninstallGuard
 import java.util.concurrent.atomic.AtomicReference
@@ -33,10 +35,11 @@ class FocusTagAccessibilityService : AccessibilityService() {
                 TAG,
                 "Session state updated: isArmed=${newState.isArmed}, owner=${newState.ownerUserId}, blockedCount=${newState.blockedPackages.size}"
             )
-            val ctx = instance?.applicationContext
-            if (previous.isArmed != newState.isArmed) {
-                instance?.let { UninstallBlockController(it).setBlocked(newState.isArmed) }
-                ctx?.let { FocusWatchdogService.setArmed(it, newState.isArmed) }
+            val ctx = instance?.applicationContext ?: FocusTagApp.appContext
+            if (ctx != null && previous.isArmed != newState.isArmed) {
+                SessionLockStore.setLocked(ctx, newState.isArmed)
+                UninstallBlockController(ctx).setBlocked(newState.isArmed)
+                FocusWatchdogService.setArmed(ctx, newState.isArmed)
             }
             if (newState.isArmed) {
                 FocusNotificationGuardService.sweepArmedSession()
