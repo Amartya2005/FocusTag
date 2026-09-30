@@ -258,7 +258,7 @@ fun HomeScreen(
                 }
 
                 Text(
-                    text = "NFC Attendance functionality coming soon. Stay tuned!",
+                    text = "Tap a registered NFC tag to start or end a focus session.",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )

@@ -1,0 +1,3 @@
+# Copy to local.properties and replace placeholders locally. Do not commit local.properties.
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-publishable-key
