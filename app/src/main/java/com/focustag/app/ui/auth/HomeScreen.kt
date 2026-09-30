@@ -12,29 +12,40 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Nfc
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.focustag.app.BuildConfig
 import com.focustag.app.data.model.AccessibilityCapability
 import com.focustag.app.data.model.EnforcementStatus
 import com.focustag.app.data.model.FocusState
 import com.focustag.app.data.model.NfcCapability
-import com.focustag.app.ui.focus.FocusViewModel
 import com.focustag.app.ui.acs.AcsRequiredGate
+import com.focustag.app.ui.focus.FocusViewModel
 import io.github.jan.supabase.auth.status.SessionStatus
 
 @Composable
@@ -44,6 +55,7 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToApps: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToQr: () -> Unit,
     onBack: () -> Unit
 ) {
     val sessionStatus by authViewModel.sessionStatus.collectAsState()
@@ -54,249 +66,149 @@ fun HomeScreen(
     val nfcCapability by focusViewModel.nfcCapability.collectAsState()
     val acsBlocked by focusViewModel.acsBlocked.collectAsState()
 
-    // Pack 4: unmissable ACS room-fail — full screen, tap path blocked
     if (acsBlocked || accessibilityCapability != AccessibilityCapability.ACCESSIBILITY_READY) {
         AcsRequiredGate()
         return
     }
-    
-    val context = LocalContext.current
 
+    val context = LocalContext.current
     val userEmail = when (val status = sessionStatus) {
-        is SessionStatus.Authenticated -> status.session.user?.email ?: "Unknown User"
+        is SessionStatus.Authenticated -> status.session.user?.email ?: "Student"
         else -> "Guest"
     }
+    val isFocusActive = focusSessionState.focusState == FocusState.FOCUS_ACTIVE
+    val nfcReady = nfcCapability == NfcCapability.NFC_READY
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start
-        ) {
-            OutlinedButton(onClick = onBack) {
-                Text("← Dashboard")
-            }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(onClick = onBack) { Text("Dashboard") }
+            Text("CLASSROOM", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Logo Placeholder (Simple Box instead of Icon to avoid extra dependencies)
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
+        Spacer(modifier = Modifier.height(20.dp))
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = if (isFocusActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = "FT",
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-        
-        Text(
-            text = "FocusTag",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(48.dp))
-
-        Text(
-            text = "Welcome to FocusTag",
-            style = MaterialTheme.typography.headlineSmall
-        )
-        
-        Text(
-            text = userEmail,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.secondary
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Focus Mode",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // Focus Status Display
-                val isFocusActive = focusSessionState.focusState == FocusState.FOCUS_ACTIVE
-                Text(
-                    text = if (isFocusActive) "STATUS: ACTIVE" else "STATUS: OFF",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isFocusActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
-                )
-                
-                val statusText = when (enforcementStatus) {
-                    EnforcementStatus.NOT_DEVICE_OWNER -> "Enforcement: UNAVAILABLE (No Device Owner)"
-                    EnforcementStatus.DEVICE_OWNER_READY -> "Enforcement: READY (Device Owner Active)"
-                    EnforcementStatus.ENFORCEMENT_SIMULATED -> "Enforcement: SIMULATED"
-                    EnforcementStatus.ENFORCEMENT_ACTIVE -> "Enforcement: ACTIVE"
-                    EnforcementStatus.ENFORCEMENT_DEGRADED -> "Enforcement: DEGRADED"
-                    EnforcementStatus.ENFORCEMENT_FAILED -> "Enforcement: FAILED"
-                    EnforcementStatus.ENFORCEMENT_LOST -> "Enforcement: LOST (Device Owner Revoked)"
-                    else -> "Enforcement: ${enforcementStatus.name}"
+            Column(modifier = Modifier.padding(24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("FT", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.size(12.dp))
+                    Column {
+                        Text(if (isFocusActive) "Class in session" else "Ready at the door", style = MaterialTheme.typography.titleLarge)
+                        Text(userEmail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-
+                Spacer(modifier = Modifier.height(20.dp))
                 Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
+                    if (isFocusActive) "FOCUS ON" else "FOCUS OFF",
+                    style = MaterialTheme.typography.displaySmall,
+                    color = if (isFocusActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                 )
-
+                Text(
+                    if (isFocusActive) "Apps are restricted until you tap or scan the same classroom tag."
+                    else "Tap the NFC tag or scan the door QR to start. Same registered UID either way.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Accessibility Capability Display
-                val isAccessibilityReady = accessibilityCapability == AccessibilityCapability.ACCESSIBILITY_READY
+                Text(enforcementLabel(enforcementStatus), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    text = if (isAccessibilityReady) "Enforcement: Accessibility ready" else "Enforcement: Accessibility unavailable",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (isAccessibilityReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Medium
-                )
-
-                // NFC Capability Display
-                val isNfcReady = nfcCapability == NfcCapability.NFC_READY
-                val isNfcOff = nfcCapability == NfcCapability.NFC_OFF
-                
-                Text(
-                    text = when (nfcCapability) {
-                        NfcCapability.NFC_READY -> "Trigger: NFC ready"
-                        NfcCapability.NFC_OFF -> "Trigger: NFC is off"
-                        NfcCapability.NFC_UNAVAILABLE -> "Trigger: NFC hardware unavailable"
+                    when (nfcCapability) {
+                        NfcCapability.NFC_READY -> "NFC ready \u00b7 QR always available"
+                        NfcCapability.NFC_OFF -> "NFC is off \u00b7 use QR at the door"
+                        NfcCapability.NFC_UNAVAILABLE -> "No NFC hardware \u00b7 use QR"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isNfcReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Medium
-                )
-
-                if (!isAccessibilityReady) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = {
-                            val intent = android.content.Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Enable Accessibility")
-                    }
-                }
-
-                if (isNfcOff) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = {
-                            val intent = android.content.Intent(Settings.ACTION_NFC_SETTINGS)
-                            context.startActivity(intent)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Enable NFC")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                if (com.focustag.app.BuildConfig.DEBUG) {
-                    Button(
-                        onClick = focusViewModel::onSimulatedTagTap,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isTransitioning && (isFocusActive || isAccessibilityReady),
-                        colors = if (isFocusActive) ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error) else ButtonDefaults.buttonColors()
-                    ) {
-                        if (isTransitioning) {
-                            androidx.compose.material3.CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(if (isFocusActive) "Simulate Focus Tag (Deactivate)" else "Simulate Focus Tag (Activate)")
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                
-                Button(
-                    onClick = onNavigateToApps,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isFocusActive
-                ) {
-                    Text("Manage Focus Apps")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                if (isFocusActive) {
-                    Text(
-                        text = "Configuration locked while Focus is active",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Text(
-                    text = "NFC Attendance functionality coming soon. Stay tuned!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        val isFocusActive = focusSessionState.focusState == FocusState.FOCUS_ACTIVE
-
-        OutlinedButton(
-            onClick = onNavigateToHistory,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isFocusActive
-        ) {
-            Text("View History")
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onNavigateToQr, modifier = Modifier.fillMaxWidth().height(56.dp), enabled = !isTransitioning) {
+            Icon(Icons.Outlined.QrCodeScanner, contentDescription = null)
+            Spacer(modifier = Modifier.size(8.dp))
+            Text(if (isFocusActive) "Scan QR to leave" else "Scan classroom QR")
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedButton(
-            onClick = onNavigateToProfile,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isFocusActive
-        ) {
-            Text("View Profile")
+        if (nfcCapability == NfcCapability.NFC_OFF) {
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(onClick = { context.startActivity(android.content.Intent(Settings.ACTION_NFC_SETTINGS)) }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.Nfc, contentDescription = null)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text("Turn on NFC")
+            }
         }
-
+        if (nfcReady) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                if (isFocusActive) "Hold the same tag to the phone to release." else "Hold the classroom tag to the phone to start.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (isTransitioning) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text("Talking to server\u2026", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        if (BuildConfig.DEBUG) {
+            Spacer(modifier = Modifier.height(12.dp))
+            FilledTonalButton(onClick = { focusViewModel.onTagEvent("1D:1D:70:1C:1A:10:80") }, modifier = Modifier.fillMaxWidth(), enabled = !isTransitioning) {
+                Text("Smoke: Pilot Room A QR UID")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            FilledTonalButton(onClick = focusViewModel::onSimulatedTagTap, modifier = Modifier.fillMaxWidth(), enabled = !isTransitioning) {
+                Text(if (isFocusActive) "Local simulate release" else "Local simulate start")
+            }
+        }
+        Spacer(modifier = Modifier.height(20.dp))
+        OutlinedButton(onClick = onNavigateToApps, modifier = Modifier.fillMaxWidth(), enabled = !isFocusActive) { Text("Allowed apps") }
+        if (isFocusActive) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Settings stay locked while class is in session.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+        }
         Spacer(modifier = Modifier.height(8.dp))
-
+        OutlinedButton(onClick = onNavigateToHistory, modifier = Modifier.fillMaxWidth(), enabled = !isFocusActive) {
+            Icon(Icons.Outlined.History, contentDescription = null)
+            Spacer(modifier = Modifier.size(8.dp))
+            Text("Session history")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        OutlinedButton(onClick = onNavigateToProfile, modifier = Modifier.fillMaxWidth(), enabled = !isFocusActive) {
+            Icon(Icons.Outlined.Person, contentDescription = null)
+            Spacer(modifier = Modifier.size(8.dp))
+            Text("Profile")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = { authViewModel.signOut(context) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isFocusActive
-        ) {
-            Text("Log Out")
-        }
-        
+            enabled = !isFocusActive,
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface)
+        ) { Text("Sign out") }
         Spacer(modifier = Modifier.height(16.dp))
     }
+}
+
+private fun enforcementLabel(status: EnforcementStatus): String = when (status) {
+    EnforcementStatus.ENFORCEMENT_ACTIVE -> "Policy: enforcing"
+    EnforcementStatus.ENFORCEMENT_SIMULATED -> "Policy: simulated"
+    EnforcementStatus.ENFORCEMENT_DEGRADED -> "Policy: degraded \u2014 fail-closed"
+    EnforcementStatus.ENFORCEMENT_FAILED -> "Policy: failed \u2014 fail-closed"
+    EnforcementStatus.IDLE -> "Policy: idle"
+    else -> "Policy: ${status.name.lowercase().replace('_', ' ')}"
 }

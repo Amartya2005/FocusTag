@@ -1,0 +1,6 @@
+## Copy to local.properties (gitignored). Never commit real keys.
+sdk.dir=/path/to/Android/sdk
+
+# Pilot Supabase project (ref from C-path landing: owsbizpdcdzcvplvxfnt)
+SUPABASE_URL=https://owsbizpdcdzcvplvxfnt.supabase.co
+SUPABASE_PUBLISHABLE_KEY=REPLACE_WITH_ANON_OR_PUBLISHABLE_KEY
