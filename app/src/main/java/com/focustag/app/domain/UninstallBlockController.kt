@@ -7,12 +7,13 @@ import android.util.Log
 import com.focustag.app.data.receiver.FocusDeviceAdminReceiver
 
 /**
- * OS-level uninstall block. Only succeeds when this app is already Device or
- * Profile Owner. Pilot devices are not enrolled; callers must tolerate a no-op.
+ * OS-level uninstall block. Survives reboot only when this package is Device
+ * or Profile Owner. ACS intercept still covers the unlocked session.
  */
 class UninstallBlockController(private val context: Context) {
 
     fun setBlocked(blocked: Boolean) {
+        SessionLockStore.setLocked(context, blocked)
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as? DevicePolicyManager
             ?: return
         val admin = ComponentName(context, FocusDeviceAdminReceiver::class.java)
