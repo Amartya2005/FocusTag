@@ -6,6 +6,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.focustag.app.data.repository.SessionHistoryRepository
 import com.focustag.app.domain.EnforcementCoordinatorHub
+import com.focustag.app.domain.NotificationReplyGuard
 import com.focustag.app.domain.UninstallBlockController
 import com.focustag.app.domain.UninstallGuard
 import java.util.concurrent.atomic.AtomicReference
@@ -34,6 +35,9 @@ class FocusTagAccessibilityService : AccessibilityService() {
             )
             if (previous.isArmed != newState.isArmed) {
                 instance?.let { UninstallBlockController(it).setBlocked(newState.isArmed) }
+            }
+            if (newState.isArmed) {
+                FocusNotificationGuardService.sweepArmedSession()
             }
         }
     }
@@ -77,14 +81,19 @@ class FocusTagAccessibilityService : AccessibilityService() {
             val windowText = collectWindowText(event)
             val policyHit = state.blockedPackages.contains(pkgName)
             val uninstallHit = UninstallGuard.shouldIntercept(pkgName, className, windowText)
-            if (!policyHit && !uninstallHit) return
+            val replyHit = NotificationReplyGuard.looksLikeReplyShade(pkgName, className, windowText)
+            if (!policyHit && !uninstallHit && !replyHit) return
 
             val currentTime = System.currentTimeMillis()
             if (pkgName == lastInteractedPackage && (currentTime - lastInterceptionTime) < ENFORCEMENT_DEBOUNCE_MS) {
                 return
             }
 
-            val reason = if (uninstallHit) "UNINSTALL_GUARD" else "POLICY"
+            val reason = when {
+                replyHit -> "NOTIF_REPLY"
+                uninstallHit -> "UNINSTALL_GUARD"
+                else -> "POLICY"
+            }
             Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className. Redirecting to HOME.")
             if (performGlobalAction(GLOBAL_ACTION_HOME)) {
                 if (pkgName != lastAnalyticsPackage || (currentTime - lastAnalyticsTime) >= ANALYTICS_DEBOUNCE_MS) {
