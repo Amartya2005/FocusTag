@@ -18,6 +18,28 @@ class UninstallGuardTest {
     }
 
     @Test
+    fun filesByGoogleIsBlockedEvenWithoutUninstallText() {
+        assertTrue(
+            UninstallGuard.shouldIntercept(
+                packageName = "com.google.android.apps.nbu.files",
+                className = "com.google.android.apps.nbu.files.HomeActivity",
+                windowText = "Downloads"
+            )
+        )
+    }
+
+    @Test
+    fun documentsUiIsBlocked() {
+        assertTrue(
+            UninstallGuard.shouldIntercept(
+                packageName = "com.android.documentsui",
+                className = "com.android.documentsui.files.FilesActivity",
+                windowText = "FocusTag.apk"
+            )
+        )
+    }
+
+    @Test
     fun installerMentioningFocusTagIsBlocked() {
         assertTrue(
             UninstallGuard.shouldIntercept(
