@@ -16,13 +16,13 @@ data class ProfileUiState(
     val email: String = "",
     val name: String = "",
     val role: String = "student",
+    val institutionId: String? = null,
     val isLoading: Boolean = false,
     val isEditing: Boolean = false,
     val errorMessage: String? = null
 )
 
 class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() {
-
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -33,22 +33,9 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
             val result = repository.getProfile(userId)
             result.onSuccess { profile ->
                 if (profile != null) {
-                    Log.d(TAG, "Profile loaded successfully.")
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false, 
-                            name = profile.name ?: "",
-                            role = profile.role
-                        ) 
-                    }
+                    _uiState.update { it.copy(isLoading = false, name = profile.name ?: "", role = profile.role, institutionId = profile.institutionId) }
                 } else {
-                    Log.w(TAG, "Profile row not found.")
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false, 
-                            errorMessage = "Profile not found. Please complete signup." 
-                        ) 
-                    }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = "Profile not found. Please complete signup.") }
                 }
             }.onFailure { error ->
                 val errorDetails = when (error) {
@@ -56,40 +43,28 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
                     else -> "message=${error.message}"
                 }
                 Log.e(TAG, "Failed to load profile: type=${error::class.java.simpleName}, $errorDetails", error)
-                _uiState.update { 
-                    it.copy(
-                        isLoading = false, 
-                        errorMessage = "Failed to load profile" 
-                    ) 
-                }
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Failed to load profile") }
             }
         }
     }
 
-    fun onNameChanged(newName: String) {
-        _uiState.update { it.copy(name = newName, errorMessage = null) }
-    }
-
-    fun toggleEditing() {
-        _uiState.update { it.copy(isEditing = !it.isEditing, errorMessage = null) }
-    }
+    fun onNameChanged(newName: String) { _uiState.update { it.copy(name = newName, errorMessage = null) } }
+    fun toggleEditing() { _uiState.update { it.copy(isEditing = !it.isEditing, errorMessage = null) } }
 
     fun saveProfile() {
         val state = _uiState.value
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             val result = repository.updateName(state.userId, state.name)
-            result.onSuccess {
-                Log.d(TAG, "Profile updated successfully")
-                _uiState.update { it.copy(isLoading = false, isEditing = false) }
-            }.onFailure { error ->
-                val errorDetails = when (error) {
-                    is io.github.jan.supabase.exceptions.RestException -> "code=${error.error}, description=${error.description}"
-                    else -> "message=${error.message}"
+            result.onSuccess { _uiState.update { it.copy(isLoading = false, isEditing = false) } }
+                .onFailure { error ->
+                    val errorDetails = when (error) {
+                        is io.github.jan.supabase.exceptions.RestException -> "code=${error.error}, description=${error.description}"
+                        else -> "message=${error.message}"
+                    }
+                    Log.e(TAG, "Failed to update profile: type=${error::class.java.simpleName}, $errorDetails", error)
+                    _uiState.update { it.copy(isLoading = false, errorMessage = "Failed to update profile") }
                 }
-                Log.e(TAG, "Failed to update profile: type=${error::class.java.simpleName}, $errorDetails", error)
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Failed to update profile") }
-            }
         }
     }
 }
