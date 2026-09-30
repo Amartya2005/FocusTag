@@ -26,8 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -72,13 +70,12 @@ fun QrScanScreen(
         )
     }
     var error by remember { mutableStateOf<String?>(null) }
-    var manual by remember { mutableStateOf("") }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasCamera = granted
-        if (!granted) error = "Camera permission is required to scan a classroom QR."
+        if (!granted) error = "Allow camera to scan."
     }
 
     DisposableEffect(Unit) {
@@ -93,13 +90,13 @@ fun QrScanScreen(
             .padding(20.dp)
     ) {
         Text(
-            text = if (isFocusActive) "Scan to leave class" else "Scan classroom tag",
+            text = if (isFocusActive) "Scan to leave" else "Scan the door",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
             color = Color.White
         )
         Text(
-            text = "Point at focustag://tag/{uid}. Same path as NFC.",
+            text = "Point at the classroom code.",
             style = MaterialTheme.typography.bodyMedium,
             color = Sand.copy(alpha = 0.72f),
             modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
@@ -109,12 +106,12 @@ fun QrScanScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(28.dp))
                     .background(InkRaised)
             ) {
                 CameraBarcodePreview(onRaw = { raw ->
                     val uid = TagLinkParser.extractUid(raw)
-                    if (uid == null) error = "Not a FocusTag classroom code"
+                    if (uid == null) error = "Not a classroom code"
                     else {
                         error = null
                         onUidResolved(uid)
@@ -129,60 +126,22 @@ fun QrScanScreen(
             }
         } else {
             Box(
-                modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(24.dp)).background(InkRaised),
+                modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(28.dp)).background(InkRaised),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Camera unavailable", color = Color.White, style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(12.dp))
-                    Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Grant camera") }
-                }
+                Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Allow camera") }
             }
         }
-        Text(
-            text = if (isFocusActive) "Looking for the same classroom tag" else "Looking for Pilot Room A",
-            color = Teal,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(top = 16.dp).align(Alignment.CenterHorizontally)
-        )
         error?.let {
-            Text(text = it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            Text(text = it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp))
         }
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = manual,
-            onValueChange = { manual = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Paste focustag://tag/... or UID") },
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = Teal,
-                unfocusedBorderColor = Sand.copy(alpha = 0.3f),
-                focusedLabelColor = Teal,
-                unfocusedLabelColor = Sand.copy(alpha = 0.6f)
-            )
-        )
-        Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = {
-                val uid = TagLinkParser.extractUid(manual)
-                if (uid == null) error = "Could not read a tag UID from that value"
-                else onUidResolved(uid)
-            },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)
-        ) { Text("Use this code") }
-        Spacer(Modifier.height(8.dp))
         Button(
             onClick = onCancel,
             modifier = Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Ink)
-        ) { Text("Cancel") }
+        ) { Text("Back") }
     }
 }
 
