@@ -44,6 +44,7 @@ import com.focustag.app.ui.components.ErrorBanner
 import com.focustag.app.ui.components.InitialsAvatar
 import com.focustag.app.ui.components.SecondaryRail
 import com.focustag.app.ui.focus.FocusViewModel
+import com.focustag.app.util.NotificationAccessChecker
 import io.github.jan.supabase.auth.status.SessionStatus
 
 @Composable
@@ -64,13 +65,22 @@ fun HomeScreen(
     val nfcCapability by focusViewModel.nfcCapability.collectAsState()
     val acsBlocked by focusViewModel.acsBlocked.collectAsState()
     val lastTapMessage by focusViewModel.lastTapMessage.collectAsState()
+    val context = LocalContext.current
 
     if (acsBlocked || accessibilityCapability != AccessibilityCapability.ACCESSIBILITY_READY) {
         AcsRequiredGate()
         return
     }
+    if (!NotificationAccessChecker.isEnabled(context)) {
+        AcsRequiredGate(
+            title = "Notification access is required",
+            body = "Class cannot lock message replies until FocusTag can clear chat notifications. Enable FocusTag under Notification access, then return here.",
+            buttonLabel = "Open notification access",
+            settingsAction = Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
+        )
+        return
+    }
 
-    val context = LocalContext.current
     val userEmail = when (val status = sessionStatus) {
         is SessionStatus.Authenticated -> status.session.user?.email ?: "Student"
         else -> "Guest"
@@ -102,7 +112,7 @@ fun HomeScreen(
                         color = if (isFocusActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("\u00b7", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         enforcementLabel(enforcementStatus),
                         style = MaterialTheme.typography.labelLarge,
@@ -117,7 +127,7 @@ fun HomeScreen(
                 )
                 Text(
                     if (isFocusActive)
-                        "Apps and uninstall stay locked until you scan or tap the same classroom tag."
+                        "Apps, uninstall, and notification replies stay locked until you scan or tap the same classroom tag."
                     else
                         "Scan the door QR or hold the NFC tag. Same registered UID either way.",
                     style = MaterialTheme.typography.bodyLarge,
@@ -126,9 +136,9 @@ fun HomeScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(
                     when (nfcCapability) {
-                        NfcCapability.NFC_READY -> "NFC ready  ·  QR always available"
-                        NfcCapability.NFC_OFF -> "NFC is off  ·  use QR"
-                        NfcCapability.NFC_UNAVAILABLE -> "No NFC  ·  use QR"
+                        NfcCapability.NFC_READY -> "NFC ready  \u00b7  QR always available"
+                        NfcCapability.NFC_OFF -> "NFC is off  \u00b7  use QR"
+                        NfcCapability.NFC_UNAVAILABLE -> "No NFC  \u00b7  use QR"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -165,7 +175,7 @@ fun HomeScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.size(8.dp))
-                Text("Talking to classroom server…", style = MaterialTheme.typography.bodyMedium)
+                Text("Talking to classroom server\u2026", style = MaterialTheme.typography.bodyMedium)
             }
         }
         Spacer(Modifier.height(20.dp))
