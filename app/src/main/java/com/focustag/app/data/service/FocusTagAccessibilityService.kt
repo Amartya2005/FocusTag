@@ -33,8 +33,10 @@ class FocusTagAccessibilityService : AccessibilityService() {
                 TAG,
                 "Session state updated: isArmed=${newState.isArmed}, owner=${newState.ownerUserId}, blockedCount=${newState.blockedPackages.size}"
             )
+            val ctx = instance?.applicationContext
             if (previous.isArmed != newState.isArmed) {
                 instance?.let { UninstallBlockController(it).setBlocked(newState.isArmed) }
+                ctx?.let { FocusWatchdogService.setArmed(it, newState.isArmed) }
             }
             if (newState.isArmed) {
                 FocusNotificationGuardService.sweepArmedSession()
@@ -51,7 +53,6 @@ class FocusTagAccessibilityService : AccessibilityService() {
     private var lastInterceptionTime = 0L
     private var lastInteractedPackage: String? = null
     private val ENFORCEMENT_DEBOUNCE_MS = 350L
-
     private var lastAnalyticsTime = 0L
     private var lastAnalyticsPackage: String? = null
     private val ANALYTICS_DEBOUNCE_MS = 2000L
@@ -60,7 +61,9 @@ class FocusTagAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         Log.d(TAG, "FocusTag AccessibilityService successfully connected")
-        UninstallBlockController(this).setBlocked(sessionState.get().isArmed)
+        val armed = sessionState.get().isArmed
+        UninstallBlockController(this).setBlocked(armed)
+        if (armed) FocusWatchdogService.setArmed(applicationContext, true)
         EnforcementCoordinatorHub.requestHeadlessReconcile(applicationContext)
     }
 
@@ -68,7 +71,6 @@ class FocusTagAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
-            AccessibilityEvent.TYPE_WINDOWS_CHANGED,
             AccessibilityEvent.TYPE_VIEW_CLICKED -> Unit
             else -> return
         }
@@ -78,11 +80,25 @@ class FocusTagAccessibilityService : AccessibilityService() {
         val state = sessionState.get()
         if (!state.isArmed || state.ownerUserId == null || state.sessionId == null) return
 
+        val knownHit = state.blockedPackages.contains(pkgName) ||
+            UninstallGuard.isFileManagerPackage(pkgName) ||
+            UninstallGuard.isInstallerPackage(pkgName)
+
+        val needsTree = !knownHit && (
+            UninstallGuard.isSettingsPackage(pkgName) ||
+                pkgName == "com.android.systemui" ||
+                pkgName.contains("launcher", ignoreCase = true)
+            )
+
+        if (!knownHit && !needsTree && event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            return
+        }
+
         try {
             val className = event.className?.toString()
-            val windowText = collectWindowText(event)
+            val windowText = if (needsTree) collectWindowText(event) else event.text.joinToString(" ") { it.toString() }
             val policyHit = state.blockedPackages.contains(pkgName)
-            val uninstallHit = UninstallGuard.shouldIntercept(pkgName, className, windowText)
+            val uninstallHit = knownHit || UninstallGuard.shouldIntercept(pkgName, className, windowText)
             val replyHit = NotificationReplyGuard.looksLikeReplyShade(pkgName, className, windowText)
             if (!policyHit && !uninstallHit && !replyHit) return
 
@@ -97,7 +113,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
                 replyHit -> "NOTIF_REPLY"
                 else -> "POLICY"
             }
-            Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className. Redirecting to HOME.")
+            Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className")
             if (performGlobalAction(GLOBAL_ACTION_HOME)) {
                 if (pkgName != lastAnalyticsPackage || (currentTime - lastAnalyticsTime) >= ANALYTICS_DEBOUNCE_MS) {
                     SessionHistoryRepository(applicationContext, state.ownerUserId)
@@ -106,7 +122,6 @@ class FocusTagAccessibilityService : AccessibilityService() {
                     lastAnalyticsPackage = pkgName
                 }
             }
-
             lastInterceptionTime = currentTime
             lastInteractedPackage = pkgName
         } catch (e: Exception) {
@@ -116,23 +131,19 @@ class FocusTagAccessibilityService : AccessibilityService() {
 
     private fun collectWindowText(event: AccessibilityEvent): String {
         val fromEvent = event.text.joinToString(" ") { it.toString() }
-        val sourceText = try { event.source?.text?.toString().orEmpty() } catch (_: Exception) { "" }
-        val root = rootInActiveWindow ?: return "$fromEvent $sourceText"
-        val sb = StringBuilder(fromEvent).append(' ').append(sourceText)
+        val root = rootInActiveWindow ?: return fromEvent
+        val sb = StringBuilder(fromEvent)
         try {
             walkText(root, sb, 0)
         } catch (_: Exception) {
         } finally {
-            try {
-                root.recycle()
-            } catch (_: Exception) {
-            }
+            try { root.recycle() } catch (_: Exception) {}
         }
         return sb.toString()
     }
 
     private fun walkText(node: AccessibilityNodeInfo, out: StringBuilder, depth: Int) {
-        if (depth > 6) return
+        if (depth > 5) return
         node.text?.let { if (it.isNotBlank()) out.append(' ').append(it) }
         node.contentDescription?.let { if (it.isNotBlank()) out.append(' ').append(it) }
         for (i in 0 until node.childCount) {
@@ -140,10 +151,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
             try {
                 walkText(child, out, depth + 1)
             } finally {
-                try {
-                    child.recycle()
-                } catch (_: Exception) {
-                }
+                try { child.recycle() } catch (_: Exception) {}
             }
         }
     }
@@ -155,6 +163,5 @@ class FocusTagAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         if (instance === this) instance = null
         super.onDestroy()
-        Log.d(TAG, "FocusTag AccessibilityService destroyed")
     }
 }
