@@ -125,7 +125,7 @@ private fun TagsTab(repository: AdminRepository, tags: List<AdminTag>, locations
     var uid by remember { mutableStateOf("") }
     var locationId by remember { mutableStateOf("") }
     LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item { Text("Register NFC / QR tag", style = MaterialTheme.typypography.titleMedium) }
+        item { Text("Register NFC / QR tag", style = MaterialTheme.typography.titleMedium) }
         item { AdminField("Tag UID", uid) { uid = it } }
         item { AdminField("Location ID", locationId) { locationId = it } }
         item { Button(onClick = { scope.launch { repository.registerTag(uid, locationId).fold({ uid = ""; refresh() }, { report(it.message ?: "Could not register tag") }) } }, enabled = uid.isNotBlank() && locationId.isNotBlank()) { Text("Register tag") } }
