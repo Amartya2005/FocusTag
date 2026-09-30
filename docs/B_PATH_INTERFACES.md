@@ -1,7 +1,7 @@
 # Focus Tag — B-path interface notes (pilot contract)
 
 **Owner:** Software Architect  
-**Status:** Canonical for Tue 30 Sep 2026 B-path hardening (Packs 2–4)  
+**Status:** Canonical for Dec 30 Sep 2026 B-path hardening (Packs 2–4)  
 **Repo target:** https://github.com/Amartya2005/FocusTag (land with first B-path PR after Lead seed-complete)  
 **Local tree:** `/workspace/FocusTag`  
 **Aligned draft:** `docs/SENIOR_B_PATH_DRAFT.md` + `supabase/migrations/20260930140000_tap_focus_rpc.sql`
