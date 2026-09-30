@@ -2,14 +2,22 @@ package com.focustag.app.util
 
 import android.app.Activity
 import android.nfc.NfcAdapter
-import android.nfc.Tag
 import android.util.Log
 
-class NfcController(private val activity: Activity) {
+/**
+ * Pack 2/4 NFC reader.
+ * HID dedupe only (250–500ms). Start/release debounce lives in FocusViewModel
+ * and is stamped only after server `tap_focus` accept.
+ */
+class NfcController(
+    private val activity: Activity,
+    /** Unused for debounce; kept for call-site compatibility. */
+    private val isFocusActive: () -> Boolean = { false }
+) {
 
     private companion object {
         const val TAG = "NfcController"
-        const val DEBOUNCE_MS = 2000L
+        const val HID_DEDUPE_MS = 350L
     }
 
     private val nfcAdapter: NfcAdapter? by lazy {
@@ -35,8 +43,8 @@ class NfcController(private val activity: Activity) {
                 val currentTime = System.currentTimeMillis()
 
                 synchronized(this) {
-                    if (tagId == lastTagId && (currentTime - lastTagTimestamp) < DEBOUNCE_MS) {
-                        Log.d(TAG, "NFC debounce: ignoring repeat tag $tagId")
+                    if (tagId == lastTagId && (currentTime - lastTagTimestamp) < HID_DEDUPE_MS) {
+                        Log.d(TAG, "NFC HID dedupe: ignoring chatter $tagId")
                         return@enableReaderMode
                     }
                     lastTagId = tagId
