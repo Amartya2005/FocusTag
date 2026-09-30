@@ -117,7 +117,7 @@ fun HomeScreen(
                     color = if (isFocusActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    if (isFocusActive) "Apps are restricted until you tap or scan the same classroom tag."
+                    if (isFocusActive) "Apps are restricted until you tap or scan the same classroom tag. Uninstall is locked for this session."
                     else "Tap the NFC tag or scan the door QR to start. Same registered UID either way.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -179,7 +179,7 @@ fun HomeScreen(
         OutlinedButton(onClick = onNavigateToApps, modifier = Modifier.fillMaxWidth(), enabled = !isFocusActive) { Text("Allowed apps") }
         if (isFocusActive) {
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Settings stay locked while class is in session.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+            Text("Settings and uninstall stay locked until the same tag or QR ends class.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
         }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedButton(onClick = onNavigateToHistory, modifier = Modifier.fillMaxWidth(), enabled = !isFocusActive) {
