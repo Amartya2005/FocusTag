@@ -3,16 +3,20 @@ package com.focustag.app.data.receiver
 import android.app.admin.DeviceAdminReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import com.focustag.app.domain.SchoolOwnedPolicy
 
 class FocusDeviceAdminReceiver : DeviceAdminReceiver() {
     override fun onEnabled(context: Context, intent: Intent) {
         super.onEnabled(context, intent)
-        Log.d("FocusDeviceAdmin", "Device Admin Enabled")
+        SchoolOwnedPolicy.applyBaseline(context)
     }
 
     override fun onDisabled(context: Context, intent: Intent) {
         super.onDisabled(context, intent)
-        Log.d("FocusDeviceAdmin", "Device Admin Disabled")
+    }
+
+    override fun onProfileProvisioningComplete(context: Context, intent: Intent) {
+        super.onProfileProvisioningComplete(context, intent)
+        SchoolOwnedPolicy.applyBaseline(context)
     }
 }
