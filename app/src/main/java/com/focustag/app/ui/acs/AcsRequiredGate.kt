@@ -24,14 +24,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-/**
- * Pack 4 unmissable room-fail: ACS not enabled.
- * Full-screen CTA; tap / QR path stay blocked while this is shown.
- */
 @Composable
 fun AcsRequiredGate(
     title: String = "Accessibility is required",
-    body: String = "Classroom focus cannot start until Accessibility is on for FocusTag. On Android 13+ sideload, also tap \u201cAllow restricted settings\u201d. NFC and QR are blocked until this is fixed."
+    body: String = "Classroom focus cannot start until Accessibility is on for FocusTag. On Android 13+ sideload, also tap \u201cAllow restricted settings\u201d. NFC and QR are blocked until this is fixed.",
+    buttonLabel: String = "Open Accessibility settings",
+    settingsAction: String = Settings.ACTION_ACCESSIBILITY_SETTINGS
 ) {
     val context = LocalContext.current
     Box(
@@ -74,12 +72,10 @@ fun AcsRequiredGate(
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
-                    onClick = {
-                        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                    },
+                    onClick = { context.startActivity(Intent(settingsAction)) },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Open Accessibility settings")
+                    Text(buttonLabel)
                 }
             }
         }

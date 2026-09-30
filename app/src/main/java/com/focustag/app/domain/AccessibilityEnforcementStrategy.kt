@@ -7,6 +7,7 @@ import com.focustag.app.data.model.EnforcementResult
 import com.focustag.app.data.model.EnforcementSnapshot
 import com.focustag.app.data.model.FocusAction
 import com.focustag.app.data.service.AccessibilitySessionState
+import com.focustag.app.data.service.FocusNotificationGuardService
 import com.focustag.app.data.service.FocusTagAccessibilityService
 
 class AccessibilityEnforcementStrategy : EnforcementStrategy {
@@ -17,7 +18,10 @@ class AccessibilityEnforcementStrategy : EnforcementStrategy {
             .map { it.appInfo.packageName }
             .filter { it != UninstallGuard.SELF_PACKAGE }
             .toMutableSet()
-            .apply { addAll(UninstallGuard.alwaysBlockedPackages) }
+            .apply {
+                addAll(UninstallGuard.alwaysBlockedPackages)
+                addAll(NotificationReplyGuard.messagingPackages)
+            }
 
         val newState = AccessibilitySessionState(
             ownerUserId = snapshot.userId,
@@ -27,6 +31,7 @@ class AccessibilityEnforcementStrategy : EnforcementStrategy {
         )
 
         FocusTagAccessibilityService.StateManager.update(newState)
+        FocusNotificationGuardService.sweepArmedSession()
 
         val ledgerEntries = blockedPackages.associateWith { pkg ->
             EnforcementLedgerEntry(
@@ -52,6 +57,7 @@ class AccessibilityEnforcementStrategy : EnforcementStrategy {
             currentState.sessionId == snapshot.sessionId &&
             currentState.blockedPackages.containsAll(UninstallGuard.alwaysBlockedPackages)
         ) {
+            FocusNotificationGuardService.sweepArmedSession()
             return EnforcementResult.Success(ledger)
         }
         return apply(snapshot)
