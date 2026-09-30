@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,7 +30,6 @@ import com.focustag.app.data.repository.SupabaseAuthRepository
 import com.focustag.app.data.repository.SupabaseProfileRepository
 import com.focustag.app.data.repository.AppInventoryRepository
 import com.focustag.app.data.repository.AppPolicyRepository
-import com.focustag.app.data.repository.EnforcementRepository
 import com.focustag.app.data.repository.FocusRepository
 import com.focustag.app.data.repository.NfcRepository
 import com.focustag.app.data.repository.SessionHistoryRepository
@@ -39,9 +37,8 @@ import com.focustag.app.data.repository.SupabaseHistoryRepository
 import com.focustag.app.data.repository.SupabaseTeacherRepository
 import com.focustag.app.data.supabase.SupabaseModule
 import com.focustag.app.data.worker.SyncScheduler
-import com.focustag.app.domain.AccessibilityEnforcementStrategy
-import com.focustag.app.domain.EnforcementCoordinator
 import com.focustag.app.domain.EnforcementCoordinatorHub
+import com.focustag.app.domain.TagLinkParser
 import com.focustag.app.ui.admin.AdminScreen
 import com.focustag.app.ui.apps.AppSelectionScreen
 import com.focustag.app.ui.apps.AppSelectionViewModel
@@ -54,6 +51,7 @@ import com.focustag.app.ui.history.HistoryScreen
 import com.focustag.app.ui.history.HistoryViewModel
 import com.focustag.app.ui.profile.ProfileScreen
 import com.focustag.app.ui.profile.ProfileViewModel
+import com.focustag.app.ui.qr.QrScanScreen
 import com.focustag.app.ui.teacher.ClassRosterScreen
 import com.focustag.app.ui.teacher.TeacherClassesScreen
 import com.focustag.app.ui.teacher.TeacherViewModel
@@ -73,10 +71,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         SupabaseModule.initialize(applicationContext)
         nfcController = NfcController(this) {
-            activeFocusViewModel?.focusState?.value?.focusState == com.focustag.app.data.model.FocusState.FOCUS_ACTIVE
+            activeFocusViewModel?.focusState?.value?.focusState == FocusState.FOCUS_ACTIVE
         }
         SessionHistoryRepository.initCollector(applicationContext)
-        SupabaseModule.client.handleDeeplinks(intent)
+        handleIncomingIntent(intent)
         enableEdgeToEdge()
         setContent {
             FocusTagTheme {
@@ -89,7 +87,6 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
-
                     val profileViewModel: ProfileViewModel = viewModel(
                         factory = object : ViewModelProvider.Factory {
                             @Suppress("UNCHECKED_CAST")
@@ -98,105 +95,75 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
-                    
                     val sessionStatus by authViewModel.sessionStatus.collectAsState()
                     val uiState by authViewModel.uiState.collectAsState()
                     var currentScreen by remember { mutableStateOf("dashboard") }
 
                     val appSelectionViewModel: AppSelectionViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
-                        viewModel(
-                            key = userId,
-                            factory = object : ViewModelProvider.Factory {
-                                @Suppress("UNCHECKED_CAST")
-                                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                                    return AppSelectionViewModel(
-                                        AppInventoryRepository(this@MainActivity),
-                                        AppPolicyRepository(this@MainActivity, userId)
-                                    ) as T
-                                }
+                        viewModel(key = userId, factory = object : ViewModelProvider.Factory {
+                            @Suppress("UNCHECKED_CAST")
+                            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                                return AppSelectionViewModel(AppInventoryRepository(this@MainActivity), AppPolicyRepository(this@MainActivity, userId)) as T
                             }
-                        )
+                        })
                     } else null
 
                     val focusViewModel: FocusViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
-                        viewModel(
-                            key = "focus_$userId",
-                            factory = object : ViewModelProvider.Factory {
-                                @Suppress("UNCHECKED_CAST")
-                                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                                    val coordinator = EnforcementCoordinatorHub.getCoordinator(this@MainActivity, userId)
-                                    return FocusViewModel(
-                                        context = this@MainActivity.applicationContext,
-                                        focusRepository = FocusRepository(this@MainActivity, userId),
-                                        enforcementCoordinator = coordinator,
-                                        nfcRepository = NfcRepository(this@MainActivity.applicationContext, userId)
-                                    ) as T
-                                }
+                        viewModel(key = "focus_$userId", factory = object : ViewModelProvider.Factory {
+                            @Suppress("UNCHECKED_CAST")
+                            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                                val coordinator = EnforcementCoordinatorHub.getCoordinator(this@MainActivity, userId)
+                                return FocusViewModel(
+                                    context = this@MainActivity.applicationContext,
+                                    focusRepository = FocusRepository(this@MainActivity, userId),
+                                    enforcementCoordinator = coordinator,
+                                    nfcRepository = NfcRepository(this@MainActivity.applicationContext, userId)
+                                ) as T
                             }
-                        )
+                        })
                     } else null
 
                     val historyViewModel: HistoryViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
-                        viewModel(
-                            key = "history_$userId",
-                            factory = object : ViewModelProvider.Factory {
-                                @Suppress("UNCHECKED_CAST")
-                                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                                    return HistoryViewModel(
-                                        userId = userId,
-                                        localRepo = SessionHistoryRepository(this@MainActivity, userId),
-                                        remoteRepo = SupabaseHistoryRepository(),
-                                        nfcRepository = NfcRepository(this@MainActivity.applicationContext, userId)
-                                    ) as T
-                                }
+                        viewModel(key = "history_$userId", factory = object : ViewModelProvider.Factory {
+                            @Suppress("UNCHECKED_CAST")
+                            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                                return HistoryViewModel(userId = userId, localRepo = SessionHistoryRepository(this@MainActivity, userId), remoteRepo = SupabaseHistoryRepository(), nfcRepository = NfcRepository(this@MainActivity.applicationContext, userId)) as T
                             }
-                        )
+                        })
                     } else null
 
                     val dashboardViewModel: com.focustag.app.ui.dashboard.DashboardViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
-                        viewModel(
-                            key = "dashboard_$userId",
-                            factory = object : ViewModelProvider.Factory {
-                                @Suppress("UNCHECKED_CAST")
-                                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                                    return com.focustag.app.ui.dashboard.DashboardViewModel(
-                                        localRepo = SessionHistoryRepository(this@MainActivity, userId),
-                                        nfcRepository = NfcRepository(this@MainActivity.applicationContext, userId)
-                                    ) as T
-                                }
+                        viewModel(key = "dashboard_$userId", factory = object : ViewModelProvider.Factory {
+                            @Suppress("UNCHECKED_CAST")
+                            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                                return com.focustag.app.ui.dashboard.DashboardViewModel(localRepo = SessionHistoryRepository(this@MainActivity, userId), nfcRepository = NfcRepository(this@MainActivity.applicationContext, userId)) as T
                             }
-                        )
+                        })
                     } else null
 
                     val teacherViewModel: TeacherViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
-                        viewModel(
-                            key = "teacher_$userId",
-                            factory = object : ViewModelProvider.Factory {
-                                @Suppress("UNCHECKED_CAST")
-                                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                                    return TeacherViewModel(SupabaseTeacherRepository()) as T
-                                }
+                        viewModel(key = "teacher_$userId", factory = object : ViewModelProvider.Factory {
+                            @Suppress("UNCHECKED_CAST")
+                            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                                return TeacherViewModel(SupabaseTeacherRepository()) as T
                             }
-                        )
+                        })
                     } else null
-                    
-                    activeFocusViewModel = focusViewModel
 
+                    activeFocusViewModel = focusViewModel
                     val focusSessionState by focusViewModel?.focusState?.collectAsState(initial = FocusSessionState()) ?: remember { mutableStateOf(FocusSessionState()) }
                     val isFocusActive = focusSessionState.focusState == FocusState.FOCUS_ACTIVE
 
                     LaunchedEffect(sessionStatus) {
-                        Log.d("MainActivity", "Auth status changed: $sessionStatus")
                         if (sessionStatus is SessionStatus.Authenticated) {
                             val session = (sessionStatus as SessionStatus.Authenticated).session
                             val userId = session.user?.id ?: ""
                             val email = session.user?.email ?: ""
-                            Log.d("MainActivity", "Authenticated session restored for user.")
                             profileViewModel.loadProfile(userId, email)
                             focusViewModel?.refreshEnforcementStatus()
                             focusViewModel?.refreshAccessibilityCapability()
@@ -222,11 +189,8 @@ class MainActivity : ComponentActivity() {
                         lifecycle.addObserver(observer)
                         onDispose { lifecycle.removeObserver(observer) }
                     }
-                    
-                    Box(
-                        modifier = Modifier.padding(innerPadding).fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+
+                    Box(modifier = Modifier.padding(innerPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
                         when (sessionStatus) {
                             is SessionStatus.Initializing -> CircularProgressIndicator()
                             is SessionStatus.Authenticated -> {
@@ -235,10 +199,7 @@ class MainActivity : ComponentActivity() {
                                         val profileState by profileViewModel.uiState.collectAsState()
                                         dashboardViewModel?.let {
                                             if (profileState.role == "admin") {
-                                                AdminScreen(
-                                                    institutionId = profileState.institutionId.orEmpty(),
-                                                    onBack = { currentScreen = "home" }
-                                                )
+                                                AdminScreen(institutionId = profileState.institutionId.orEmpty(), onBack = { currentScreen = "home" })
                                             } else {
                                                 com.focustag.app.ui.dashboard.DashboardScreen(
                                                     viewModel = it,
@@ -251,23 +212,22 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     }
-                                    "teacher_classes" -> {
-                                        teacherViewModel?.let {
-                                            TeacherClassesScreen(
-                                                viewModel = it,
-                                                onClassClick = { cls -> it.selectClass(cls); currentScreen = "teacher_roster" },
-                                                onBack = { currentScreen = "dashboard" }
-                                            )
-                                        }
+                                    "teacher_classes" -> teacherViewModel?.let {
+                                        TeacherClassesScreen(viewModel = it, onClassClick = { cls -> it.selectClass(cls); currentScreen = "teacher_roster" }, onBack = { currentScreen = "dashboard" })
                                     }
-                                    "teacher_roster" -> {
-                                        teacherViewModel?.let {
-                                            ClassRosterScreen(viewModel = it, onBack = { it.clearSelection(); currentScreen = "teacher_classes" })
-                                        }
+                                    "teacher_roster" -> teacherViewModel?.let {
+                                        ClassRosterScreen(viewModel = it, onBack = { it.clearSelection(); currentScreen = "teacher_classes" })
                                     }
                                     "profile" -> ProfileScreen(viewModel = profileViewModel, isFocusActive = isFocusActive, onBack = { currentScreen = "dashboard" })
                                     "apps" -> appSelectionViewModel?.let { AppSelectionScreen(viewModel = it, isFocusActive = isFocusActive, onBack = { currentScreen = "home" }) }
                                     "history" -> historyViewModel?.let { HistoryScreen(viewModel = it, onBack = { currentScreen = "dashboard" }) }
+                                    "qr_scan" -> focusViewModel?.let { focusVM ->
+                                        QrScanScreen(
+                                            isFocusActive = isFocusActive,
+                                            onUidResolved = { uid -> focusVM.onTagEvent(uid); currentScreen = "home" },
+                                            onCancel = { currentScreen = "home" }
+                                        )
+                                    }
                                     else -> focusViewModel?.let { focusVM ->
                                         HomeScreen(
                                             authViewModel = authViewModel,
@@ -275,6 +235,7 @@ class MainActivity : ComponentActivity() {
                                             onNavigateToProfile = { currentScreen = "profile" },
                                             onNavigateToApps = { currentScreen = "apps" },
                                             onNavigateToHistory = { currentScreen = "history" },
+                                            onNavigateToQr = { currentScreen = "qr_scan" },
                                             onBack = { currentScreen = "dashboard" }
                                         )
                                     }
@@ -293,7 +254,22 @@ class MainActivity : ComponentActivity() {
         nfcController.enableReaderMode { tagId -> lifecycleScope.launch(Dispatchers.Main) { activeFocusViewModel?.onTagEvent(tagId) } }
     }
 
-    override fun onPause() { super.onPause(); nfcController.disableReaderMode() }
+    override fun onPause() {
+        super.onPause()
+        nfcController.disableReaderMode()
+    }
 
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); SupabaseModule.client.handleDeeplinks(intent) }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        SupabaseModule.client.handleDeeplinks(intent)
+        val data = intent.data ?: return
+        val uid = TagLinkParser.extractUid(data.toString()) ?: return
+        Log.d("MainActivity", "Deep-link tag UID resolved")
+        lifecycleScope.launch(Dispatchers.Main) { activeFocusViewModel?.onTagEvent(uid) }
+    }
 }
