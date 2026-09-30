@@ -1,0 +1,27 @@
+name: seed-ClassRoster
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write ClassRoster
+        run: |
+          python3 << 'PY'
+          import zlib, base64, pathlib, subprocess
+          path = "app/src/main/java/com/focustag/app/ui/teacher/ClassRosterScreen.kt"
+          z = "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"
+          p = pathlib.Path(path)
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_bytes(zlib.decompress(base64.b64decode(z)))
+          print("wrote", path, p.stat().st_size)
+          subprocess.check_call(["git", "config", "user.email", "184850924+Amartya2005@users.noreply.github.com"])
+          subprocess.check_call(["git", "config", "user.name", "Amartya Sarangee"])
+          subprocess.check_call(["git", "add", "--", path])
+          subprocess.check_call(["git", "commit", "-m", "seed: FocusTag ClassRoster"])
+          subprocess.check_call(["git", "push", "origin", "HEAD:main"])
+
+          PY
