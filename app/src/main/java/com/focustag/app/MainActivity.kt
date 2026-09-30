@@ -42,6 +42,7 @@ import com.focustag.app.data.worker.SyncScheduler
 import com.focustag.app.domain.AccessibilityEnforcementStrategy
 import com.focustag.app.domain.EnforcementCoordinator
 import com.focustag.app.domain.EnforcementCoordinatorHub
+import com.focustag.app.ui.admin.AdminScreen
 import com.focustag.app.ui.apps.AppSelectionScreen
 import com.focustag.app.ui.apps.AppSelectionViewModel
 import com.focustag.app.ui.auth.AuthViewModel
@@ -105,7 +106,7 @@ class MainActivity : ComponentActivity() {
                     val appSelectionViewModel: AppSelectionViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
                         viewModel(
-                            key = userId, // Scoped to user
+                            key = userId,
                             factory = object : ViewModelProvider.Factory {
                                 @Suppress("UNCHECKED_CAST")
                                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -121,7 +122,7 @@ class MainActivity : ComponentActivity() {
                     val focusViewModel: FocusViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
                         viewModel(
-                            key = "focus_$userId", // Scoped to user
+                            key = "focus_$userId",
                             factory = object : ViewModelProvider.Factory {
                                 @Suppress("UNCHECKED_CAST")
                                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -200,11 +201,9 @@ class MainActivity : ComponentActivity() {
                             focusViewModel?.refreshEnforcementStatus()
                             focusViewModel?.refreshAccessibilityCapability()
                             focusViewModel?.refreshNfcCapability()
-                            // SURGICAL FIX: Force refresh on authentication to ensure authoritative sync
                             focusViewModel?.refreshRegistry(force = true)
                             SyncScheduler.scheduleSync(this@MainActivity, userId)
                         } else {
-                            // DEFENSE-IN-DEPTH: Explicitly clear physical registry on logout/unauthenticated transition
                             com.focustag.app.domain.NfcProtocol.setRegisteredTags(emptySet())
                             currentScreen = "home"
                         }
@@ -215,109 +214,73 @@ class MainActivity : ComponentActivity() {
                             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                                 focusViewModel?.refreshAccessibilityCapability()
                                 focusViewModel?.refreshNfcCapability()
-                                // SURGICAL FIX: Force refresh on resume to ensure deactivations propagate immediately
                                 focusViewModel?.refreshRegistry(force = true)
                                 val userId = (sessionStatus as? SessionStatus.Authenticated)?.session?.user?.id
                                 userId?.let { SyncScheduler.scheduleSync(this@MainActivity, it) }
                             }
                         }
                         lifecycle.addObserver(observer)
-                        onDispose {
-                            lifecycle.removeObserver(observer)
-                        }
+                        onDispose { lifecycle.removeObserver(observer) }
                     }
                     
                     Box(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .fillMaxSize(),
+                        modifier = Modifier.padding(innerPadding).fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         when (sessionStatus) {
-                            is SessionStatus.Initializing -> {
-                                CircularProgressIndicator()
-                            }
+                            is SessionStatus.Initializing -> CircularProgressIndicator()
                             is SessionStatus.Authenticated -> {
                                 when (currentScreen) {
                                     "dashboard" -> {
                                         val profileState by profileViewModel.uiState.collectAsState()
                                         dashboardViewModel?.let {
-                                            com.focustag.app.ui.dashboard.DashboardScreen(
-                                                viewModel = it,
-                                                isTeacher = profileState.role == "teacher",
-                                                onNavigateToHistory = { currentScreen = "history" },
-                                                onNavigateToFocus = { currentScreen = "home" },
-                                                onNavigateToProfile = { currentScreen = "profile" },
-                                                onNavigateToTeacher = { currentScreen = "teacher_classes" }
-                                            )
+                                            if (profileState.role == "admin") {
+                                                AdminScreen(
+                                                    institutionId = profileState.institutionId.orEmpty(),
+                                                    onBack = { currentScreen = "home" }
+                                                )
+                                            } else {
+                                                com.focustag.app.ui.dashboard.DashboardScreen(
+                                                    viewModel = it,
+                                                    isTeacher = profileState.role == "teacher",
+                                                    onNavigateToHistory = { currentScreen = "history" },
+                                                    onNavigateToFocus = { currentScreen = "home" },
+                                                    onNavigateToProfile = { currentScreen = "profile" },
+                                                    onNavigateToTeacher = { currentScreen = "teacher_classes" }
+                                                )
+                                            }
                                         }
                                     }
                                     "teacher_classes" -> {
                                         teacherViewModel?.let {
                                             TeacherClassesScreen(
                                                 viewModel = it,
-                                                onClassClick = { cls ->
-                                                    it.selectClass(cls)
-                                                    currentScreen = "teacher_roster"
-                                                },
+                                                onClassClick = { cls -> it.selectClass(cls); currentScreen = "teacher_roster" },
                                                 onBack = { currentScreen = "dashboard" }
                                             )
                                         }
                                     }
                                     "teacher_roster" -> {
                                         teacherViewModel?.let {
-                                            ClassRosterScreen(
-                                                viewModel = it,
-                                                onBack = { 
-                                                    it.clearSelection()
-                                                    currentScreen = "teacher_classes" 
-                                                }
-                                            )
+                                            ClassRosterScreen(viewModel = it, onBack = { it.clearSelection(); currentScreen = "teacher_classes" })
                                         }
                                     }
-                                    "profile" -> ProfileScreen(
-                                        viewModel = profileViewModel,
-                                        isFocusActive = isFocusActive,
-                                        onBack = { currentScreen = "dashboard" }
-                                    )
-                                    "apps" -> {
-                                        appSelectionViewModel?.let {
-                                            AppSelectionScreen(
-                                                viewModel = it,
-                                                isFocusActive = isFocusActive,
-                                                onBack = { currentScreen = "home" }
-                                            )
-                                        }
-                                    }
-                                    "history" -> {
-                                        historyViewModel?.let {
-                                            HistoryScreen(
-                                                viewModel = it,
-                                                onBack = { currentScreen = "dashboard" }
-                                            )
-                                        }
-                                    }
-                                    else -> {
-                                        focusViewModel?.let { focusVM ->
-                                            HomeScreen(
-                                                authViewModel = authViewModel,
-                                                focusViewModel = focusVM,
-                                                onNavigateToProfile = { currentScreen = "profile" },
-                                                onNavigateToApps = { currentScreen = "apps" },
-                                                onNavigateToHistory = { currentScreen = "history" },
-                                                onBack = { currentScreen = "dashboard" }
-                                            )
-                                        }
+                                    "profile" -> ProfileScreen(viewModel = profileViewModel, isFocusActive = isFocusActive, onBack = { currentScreen = "dashboard" })
+                                    "apps" -> appSelectionViewModel?.let { AppSelectionScreen(viewModel = it, isFocusActive = isFocusActive, onBack = { currentScreen = "home" }) }
+                                    "history" -> historyViewModel?.let { HistoryScreen(viewModel = it, onBack = { currentScreen = "dashboard" }) }
+                                    else -> focusViewModel?.let { focusVM ->
+                                        HomeScreen(
+                                            authViewModel = authViewModel,
+                                            focusViewModel = focusVM,
+                                            onNavigateToProfile = { currentScreen = "profile" },
+                                            onNavigateToApps = { currentScreen = "apps" },
+                                            onNavigateToHistory = { currentScreen = "history" },
+                                            onBack = { currentScreen = "dashboard" }
+                                        )
                                     }
                                 }
                             }
-                            else -> {
-                                if (uiState.isLoginMode) {
-                                    LoginScreen(viewModel = authViewModel)
-                                } else {
-                                    SignupScreen(viewModel = authViewModel)
-                                }
-                            }
+                            else -> if (uiState.isLoginMode) LoginScreen(viewModel = authViewModel) else SignupScreen(viewModel = authViewModel)
                         }
                     }
                 }
@@ -327,20 +290,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        nfcController.enableReaderMode { tagId ->
-            lifecycleScope.launch(Dispatchers.Main) {
-                activeFocusViewModel?.onTagEvent(tagId)
-            }
-        }
+        nfcController.enableReaderMode { tagId -> lifecycleScope.launch(Dispatchers.Main) { activeFocusViewModel?.onTagEvent(tagId) } }
     }
 
-    override fun onPause() {
-        super.onPause()
-        nfcController.disableReaderMode()
-    }
+    override fun onPause() { super.onPause(); nfcController.disableReaderMode() }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        SupabaseModule.client.handleDeeplinks(intent)
-    }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); SupabaseModule.client.handleDeeplinks(intent) }
 }
