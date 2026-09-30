@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.focustag.app.BuildConfig
 import com.focustag.app.data.model.*
 import com.focustag.app.data.repository.FocusRepository
 import com.focustag.app.data.repository.NfcRepository
@@ -45,40 +46,34 @@ open class FocusViewModel(
 
     protected val _focusState = MutableStateFlow(focusRepository.getFocusSessionState())
     val focusState = _focusState.asStateFlow()
-
     protected val _accessibilityCapability = MutableStateFlow(AccessibilityCapability.ACCESSIBILITY_UNAVAILABLE)
     val accessibilityCapability = _accessibilityCapability.asStateFlow()
-
     protected val _nfcCapability = MutableStateFlow(NfcCapability.NFC_UNAVAILABLE)
     val nfcCapability = _nfcCapability.asStateFlow()
-
     protected val _isTransitioning = MutableStateFlow(false)
     val isTransitioning = _isTransitioning.asStateFlow()
-
     protected val _acsBlocked = MutableStateFlow(false)
     val acsBlocked = _acsBlocked.asStateFlow()
-
     protected val _lastTapMessage = MutableStateFlow<String?>(null)
     val lastTapMessage = _lastTapMessage.asStateFlow()
-
     val enforcementStatus = enforcementCoordinator.status
 
     private var lastRefreshTime = 0L
     private var isRefreshing = false
+    private var lastAcceptedTagId: String? = null
+    private var lastAcceptedAtMs: Long = 0L
 
     init {
         refreshAccessibilityCapability()
         refreshNfcCapability()
         loadInitialRegistry()
         refreshRegistry()
-
         viewModelScope.launch {
             if (_focusState.value.focusState == FocusState.FOCUS_ACTIVE) {
                 _isTransitioning.update { true }
                 try {
                     enforcementCoordinator.reconcile()
-                    val status = enforcementCoordinator.status.value
-                    if (!isEnforcementActive(status)) {
+                    if (!isEnforcementActive(enforcementCoordinator.status.value)) {
                         val recoveredState = FocusSessionState(FocusState.NORMAL, null)
                         focusRepository.saveFocusSessionState(recoveredState)
                         _focusState.update { recoveredState }
@@ -91,7 +86,6 @@ open class FocusViewModel(
                 refreshEnforcementStatus()
             }
         }
-
         viewModelScope.launch {
             accessibilityCapability.collect { capability ->
                 val isReady = capability == AccessibilityCapability.ACCESSIBILITY_READY
@@ -104,50 +98,29 @@ open class FocusViewModel(
     }
 
     open fun refreshAccessibilityCapability() {
-        _accessibilityCapability.update {
-            AccessibilityCapabilityChecker.checkAccessibilityCapability(context!!)
-        }
-        val ready = _accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY
-        if (ready) _acsBlocked.update { false }
+        _accessibilityCapability.update { AccessibilityCapabilityChecker.checkAccessibilityCapability(context!!) }
+        if (_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY) _acsBlocked.update { false }
     }
 
     open fun refreshNfcCapability() {
-        _nfcCapability.update {
-            NfcCapabilityChecker.checkNfcCapability(context!!)
-        }
+        _nfcCapability.update { NfcCapabilityChecker.checkNfcCapability(context!!) }
     }
 
     open fun refreshEnforcementStatus() {
-        val isReady = _accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY
-        enforcementCoordinator.refreshStatus(isReady)
+        enforcementCoordinator.refreshStatus(_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY)
     }
 
     private fun loadInitialRegistry() {
-        val nfcRepo = nfcRepository
-        if (nfcRepo == null) {
-            NfcProtocol.setRegisteredTags(emptySet())
-            return
-        }
-        val currentUserId = currentUserIdProvider()
-        if (currentUserId == null) {
-            NfcProtocol.setRegisteredTags(emptySet())
-            return
-        }
-        val cache = nfcRepo.getCache() ?: run {
-            NfcProtocol.setRegisteredTags(emptySet())
-            return
-        }
+        val nfcRepo = nfcRepository ?: run { NfcProtocol.setRegisteredTags(emptySet()); return }
+        val currentUserId = currentUserIdProvider() ?: run { NfcProtocol.setRegisteredTags(emptySet()); return }
+        val cache = nfcRepo.getCache() ?: run { NfcProtocol.setRegisteredTags(emptySet()); return }
         val now = System.currentTimeMillis()
-        val verifiedInstitutionId = context
-            ?.getSharedPreferences("verified_profile_$currentUserId", Context.MODE_PRIVATE)
-            ?.getString("institution_id", null)
+        val verifiedInstitutionId = context?.getSharedPreferences("verified_profile_$currentUserId", Context.MODE_PRIVATE)?.getString("institution_id", null)
         if (verifiedInstitutionId == null || verifiedInstitutionId != cache.fetchedForInstitutionId) {
-            NfcProtocol.setRegisteredTags(emptySet())
-            return
+            NfcProtocol.setRegisteredTags(emptySet()); return
         }
         if (now - cache.fetchedAtMillis > MAX_CACHE_AGE_MS) {
-            NfcProtocol.setRegisteredTags(emptySet())
-            return
+            NfcProtocol.setRegisteredTags(emptySet()); return
         }
         NfcProtocol.setRegisteredTags(cache.activeUids)
     }
@@ -157,7 +130,6 @@ open class FocusViewModel(
         val now = System.currentTimeMillis()
         val shouldBypassThrottle = force || NfcProtocol.isRegistryEmpty()
         if (!shouldBypassThrottle && now - lastRefreshTime < REFRESH_INTERVAL_MS && lastRefreshTime != 0L) return
-
         viewModelScope.launch {
             isRefreshing = true
             try {
@@ -194,46 +166,40 @@ open class FocusViewModel(
     }
 
     fun onSimulatedTagTap() {
-        onTagEvent("simulated_tag_01")
+        if (BuildConfig.DEBUG) onTagEvent("simulated_tag_01")
     }
-
-    private var lastAcceptedTagId: String? = null
-    private var lastAcceptedAtMs: Long = 0L
 
     fun onTagEvent(tagId: String) {
         if (_isTransitioning.value) return
         refreshAccessibilityCapability()
         val acsReady = _accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY
-        if (!acsReady) {
-            _acsBlocked.update { true }
-            return
-        }
+        if (!acsReady) { _acsBlocked.update { true }; return }
         _acsBlocked.update { false }
         val normalized = NfcProtocol.normalize(tagId) ?: tagId
         if (normalized == "simulated_tag_01") {
+            if (!BuildConfig.DEBUG) {
+                _lastTapMessage.update { "That tag is not registered for a class." }
+                return
+            }
             val transition = FocusStateEngine.determineTransition(_focusState.value, tagId)
             if (transition is FocusTransition.Ignore) return
             viewModelScope.launch {
                 _isTransitioning.update { true }
-                try {
-                    executeLocalTransition(transition)
-                    stampAcceptedDebounce(normalized)
-                } finally {
-                    _isTransitioning.update { false }
-                }
+                try { executeLocalTransition(transition); stampAcceptedDebounce(normalized) }
+                finally { _isTransitioning.update { false } }
             }
+            return
+        }
+        if (!NfcProtocol.isRegistryEmpty() && !NfcProtocol.isRegistered(normalized)) {
+            _lastTapMessage.update { humanizeTapError("unknown_or_inactive_tag") }
             return
         }
         if (!passesAcceptedDebounce(normalized)) return
         viewModelScope.launch {
             _isTransitioning.update { true }
-            try {
-                executeServerAuthoritativeTap(normalized)
-            } catch (e: Exception) {
-                _lastTapMessage.update { e.message ?: "Could not start the session." }
-            } finally {
-                _isTransitioning.update { false }
-            }
+            try { executeServerAuthoritativeTap(normalized) }
+            catch (e: Exception) { _lastTapMessage.update { e.message ?: "Could not start the session." } }
+            finally { _isTransitioning.update { false } }
         }
     }
 
@@ -251,17 +217,8 @@ open class FocusViewModel(
     private suspend fun executeServerAuthoritativeTap(normalizedTagId: String) {
         val ctx = context ?: return
         val installUuid = InstallIdStore.getOrCreate(ctx)
-        val acsHealth = if (_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY) {
-            AcsHealth.HEALTHY
-        } else {
-            AcsHealth.FAILED
-        }
-        val result = tapFocusRepository.tapFocus(
-            tagUid = normalizedTagId,
-            installUuid = installUuid,
-            acsHealth = acsHealth,
-            idempotencyKey = UUID.randomUUID()
-        )
+        val acsHealth = if (_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY) AcsHealth.HEALTHY else AcsHealth.FAILED
+        val result = tapFocusRepository.tapFocus(tagUid = normalizedTagId, installUuid = installUuid, acsHealth = acsHealth, idempotencyKey = UUID.randomUUID())
         val response = result.getOrNull()
         if (response == null || !response.accepted) {
             _lastTapMessage.update { humanizeTapError(response?.error ?: result.exceptionOrNull()?.message) }
@@ -314,9 +271,7 @@ open class FocusViewModel(
 
     fun clearAcsBlocked() {
         refreshAccessibilityCapability()
-        if (_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY) {
-            _acsBlocked.update { false }
-        }
+        if (_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY) _acsBlocked.update { false }
     }
 
     private fun humanizeTapError(code: String?): String = when (code) {
@@ -329,8 +284,6 @@ open class FocusViewModel(
     }
 
     private fun isEnforcementActive(s: EnforcementStatus = enforcementCoordinator.status.value): Boolean {
-        return s == EnforcementStatus.ENFORCEMENT_ACTIVE ||
-            s == EnforcementStatus.ENFORCEMENT_SIMULATED ||
-            s == EnforcementStatus.ENFORCEMENT_DEGRADED
+        return s == EnforcementStatus.ENFORCEMENT_ACTIVE || s == EnforcementStatus.ENFORCEMENT_SIMULATED || s == EnforcementStatus.ENFORCEMENT_DEGRADED
     }
 }
