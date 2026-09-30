@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Nfc
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -92,11 +93,11 @@ fun HomeScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(20.dp)
+            .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
         ClassroomTopBar(
             title = if (isFocusActive) "In class" else "At the door",
-            trailing = { InitialsAvatar(userEmail.take(2), onClick = if (isFocusActive) null else onNavigateToProfile) }
+            trailing = { InitialsAvatar(userEmail, onClick = if (isFocusActive) null else onNavigateToProfile) }
         )
         Spacer(Modifier.height(20.dp))
         Surface(
@@ -104,7 +105,7 @@ fun HomeScreen(
             color = if (isFocusActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(Modifier.padding(24.dp)) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         if (isFocusActive) "SESSION LIVE" else "READY",
@@ -119,11 +120,9 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(Modifier.height(12.dp))
                 Text(
                     if (isFocusActive) "Focus on" else "Focus off",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.displaySmall
                 )
                 Text(
                     if (isFocusActive)
@@ -133,14 +132,13 @@ fun HomeScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(8.dp))
                 Text(
                     when (nfcCapability) {
                         NfcCapability.NFC_READY -> "NFC ready  \u00b7  QR always available"
                         NfcCapability.NFC_OFF -> "NFC is off  \u00b7  use QR"
                         NfcCapability.NFC_UNAVAILABLE -> "No NFC  \u00b7  use QR"
                     },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -153,17 +151,31 @@ fun HomeScreen(
         Button(
             onClick = onNavigateToQr,
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            enabled = !isTransitioning
+            enabled = !isTransitioning,
+            colors = if (isFocusActive) {
+                ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary
+                )
+            } else {
+                ButtonDefaults.buttonColors()
+            },
+            shape = RoundedCornerShape(16.dp)
         ) {
             Icon(Icons.Outlined.QrCodeScanner, contentDescription = null)
             Spacer(Modifier.size(8.dp))
-            Text(if (isFocusActive) "Scan to leave class" else "Scan classroom QR")
+            Text(
+                if (isFocusActive) "Scan to leave class" else "Scan classroom QR",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
         }
         if (nfcCapability == NfcCapability.NFC_OFF) {
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = { context.startActivity(android.content.Intent(Settings.ACTION_NFC_SETTINGS)) },
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Outlined.Nfc, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
@@ -191,7 +203,7 @@ fun HomeScreen(
             Spacer(Modifier.height(10.dp))
             Text(
                 "Tools stay closed while class is live.",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.secondary
             )
         }
@@ -200,7 +212,8 @@ fun HomeScreen(
             FilledTonalButton(
                 onClick = { focusViewModel.onTagEvent("1D:1D:70:1C:1A:10:80") },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isTransitioning
+                enabled = !isTransitioning,
+                shape = RoundedCornerShape(16.dp)
             ) { Text("Debug: Pilot Room A UID") }
         }
     }

@@ -24,9 +24,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -41,7 +42,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -52,6 +52,11 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+
+private val Ink = Color(0xFF0B1F2A)
+private val InkRaised = Color(0xFF123041)
+private val Teal = Color(0xFF2ED3C6)
+private val Sand = Color(0xFFF4EFE6)
 
 @Composable
 fun QrScanScreen(
@@ -84,21 +89,20 @@ fun QrScanScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(Ink)
+            .padding(20.dp)
     ) {
         Text(
-            text = if (isFocusActive) "Scan to leave class" else "Scan classroom QR",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold
+            text = if (isFocusActive) "Scan to leave class" else "Scan classroom tag",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White
         )
         Text(
-            text = "Same registered tag UID as NFC. Payload: focustag://tag/{uid}",
+            text = "Point at focustag://tag/{uid}. Same path as NFC.",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
+            color = Sand.copy(alpha = 0.72f),
+            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
         )
         if (hasCamera) {
             Box(
@@ -106,7 +110,7 @@ fun QrScanScreen(
                     .fillMaxWidth()
                     .weight(1f)
                     .clip(RoundedCornerShape(24.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
+                    .background(InkRaised)
             ) {
                 CameraBarcodePreview(onRaw = { raw ->
                     val uid = TagLinkParser.extractUid(raw)
@@ -120,20 +124,30 @@ fun QrScanScreen(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(220.dp)
-                        .border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
+                        .border(3.dp, Teal, RoundedCornerShape(20.dp))
                 )
             }
         } else {
-            Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(24.dp)).background(InkRaised),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Camera unavailable", style = MaterialTheme.typography.titleMedium)
+                    Text("Camera unavailable", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Grant camera") }
                 }
             }
         }
+        Text(
+            text = if (isFocusActive) "Looking for the same classroom tag" else "Looking for Pilot Room A",
+            color = Teal,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(top = 16.dp).align(Alignment.CenterHorizontally)
+        )
         error?.let {
-            Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 12.dp))
+            Text(text = it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
@@ -141,7 +155,15 @@ fun QrScanScreen(
             onValueChange = { manual = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Paste focustag://tag/... or UID") },
-            singleLine = true
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                focusedBorderColor = Teal,
+                unfocusedBorderColor = Sand.copy(alpha = 0.3f),
+                focusedLabelColor = Teal,
+                unfocusedLabelColor = Sand.copy(alpha = 0.6f)
+            )
         )
         Spacer(Modifier.height(8.dp))
         Button(
@@ -150,10 +172,17 @@ fun QrScanScreen(
                 if (uid == null) error = "Could not read a tag UID from that value"
                 else onUidResolved(uid)
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Teal, contentColor = Ink)
         ) { Text("Use this code") }
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+        Button(
+            onClick = onCancel,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Sand, contentColor = Ink)
+        ) { Text("Cancel") }
     }
 }
 
