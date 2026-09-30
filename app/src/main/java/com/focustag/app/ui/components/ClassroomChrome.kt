@@ -1,11 +1,15 @@
 package com.focustag.app.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,9 +20,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,37 +91,62 @@ fun ErrorBanner(message: String) {
 }
 
 @Composable
-fun SecondaryRail(
-    items: List<Pair<String, () -> Unit>>,
-    enabled: Boolean = true
-) {
+fun PulseDot(active: Boolean) {
+    val transition = rememberInfiniteTransition(label = "pulse")
+    val scale by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (active) 900 else 1400),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(14.dp)) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .scale(scale)
+                .background(
+                    color = if (active) MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)
+                    else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f),
+                    shape = CircleShape
+                )
+        )
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(
+                    color = if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary,
+                    shape = CircleShape
+                )
+        )
+    }
+}
+
+@Composable
+fun QuietLinkRow(items: List<Pair<String, () -> Unit>>, enabled: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         items.forEach { (label, onClick) ->
             Surface(
                 onClick = onClick,
                 enabled = enabled,
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.weight(1f).height(52.dp)
+                color = MaterialTheme.colorScheme.background,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(40.dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(label, style = MaterialTheme.typography.titleMedium)
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp)) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.outline
+                    )
                 }
             }
         }
     }
-}
-
-@Composable
-fun StatusDot(active: Boolean) {
-    Box(
-        modifier = Modifier
-            .size(10.dp)
-            .clip(CircleShape)
-            .background(if (active) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline)
-    )
-    Spacer(Modifier.size(0.dp))
 }

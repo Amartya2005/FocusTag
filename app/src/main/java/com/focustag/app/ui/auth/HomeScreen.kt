@@ -1,7 +1,11 @@
 package com.focustag.app.ui.auth
 
 import android.provider.Settings
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,19 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Nfc
-import androidx.compose.material.icons.outlined.QrCodeScanner
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +38,8 @@ import com.focustag.app.ui.acs.AcsRequiredGate
 import com.focustag.app.ui.components.ClassroomTopBar
 import com.focustag.app.ui.components.ErrorBanner
 import com.focustag.app.ui.components.InitialsAvatar
-import com.focustag.app.ui.components.SecondaryRail
+import com.focustag.app.ui.components.PulseDot
+import com.focustag.app.ui.components.QuietLinkRow
 import com.focustag.app.ui.focus.FocusViewModel
 import com.focustag.app.util.NotificationAccessChecker
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -87,56 +83,68 @@ fun HomeScreen(
         else -> "Guest"
     }
     val isFocusActive = focusSessionState.focusState == FocusState.FOCUS_ACTIVE
+    val cardColor by animateColorAsState(
+        targetValue = if (isFocusActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+        label = "doorColor"
+    )
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
         ClassroomTopBar(
             title = if (isFocusActive) "In class" else "At the door",
             trailing = { InitialsAvatar(userEmail, onClick = if (isFocusActive) null else onNavigateToProfile) }
         )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(28.dp))
         Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = if (isFocusActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+            onClick = { if (!isTransitioning) onNavigateToQr() },
+            enabled = !isTransitioning,
+            shape = RoundedCornerShape(32.dp),
+            color = cardColor,
+            shadowElevation = if (isFocusActive) 0.dp else 2.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PulseDot(active = isFocusActive)
                     Text(
-                        if (isFocusActive) "SESSION LIVE" else "READY",
+                        if (isFocusActive) "LIVE" else "READY",
                         style = MaterialTheme.typography.labelLarge,
-                        color = if (isFocusActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                        color = if (isFocusActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("\u00b7", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("·", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         enforcementLabel(enforcementStatus),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    if (isFocusActive) "Focus on" else "Focus off",
-                    style = MaterialTheme.typography.displaySmall
-                )
-                Text(
-                    if (isFocusActive)
-                        "Apps, uninstall, and notification replies stay locked until you scan or tap the same classroom tag."
-                    else
-                        "Scan the door QR or hold the NFC tag. Same registered UID either way.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                AnimatedContent(
+                    targetState = isFocusActive,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "focusCopy"
+                ) { live ->
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            if (live) "Focus on" else "Focus off",
+                            style = MaterialTheme.typography.displaySmall
+                        )
+                        Text(
+                            if (live) "Tap the same tag or scan to leave."
+                            else "Hold the tag, or tap here to scan.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Text(
                     when (nfcCapability) {
-                        NfcCapability.NFC_READY -> "NFC ready  \u00b7  QR always available"
-                        NfcCapability.NFC_OFF -> "NFC is off  \u00b7  use QR"
-                        NfcCapability.NFC_UNAVAILABLE -> "No NFC  \u00b7  use QR"
+                        NfcCapability.NFC_READY -> "NFC ready"
+                        NfcCapability.NFC_OFF -> "NFC off — tap to scan"
+                        NfcCapability.NFC_UNAVAILABLE -> "Scan to start"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -147,51 +155,24 @@ fun HomeScreen(
             Spacer(Modifier.height(12.dp))
             ErrorBanner(it)
         }
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = onNavigateToQr,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            enabled = !isTransitioning,
-            colors = if (isFocusActive) {
-                ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary
-                )
-            } else {
-                ButtonDefaults.buttonColors()
-            },
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Icon(Icons.Outlined.QrCodeScanner, contentDescription = null)
-            Spacer(Modifier.size(8.dp))
-            Text(
-                if (isFocusActive) "Scan to leave class" else "Scan classroom QR",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-        if (nfcCapability == NfcCapability.NFC_OFF) {
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { context.startActivity(android.content.Intent(Settings.ACTION_NFC_SETTINGS)) },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Outlined.Nfc, contentDescription = null)
-                Spacer(Modifier.size(8.dp))
-                Text("Turn on NFC")
-            }
-        }
         if (isTransitioning) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Spacer(Modifier.size(8.dp))
-                Text("Talking to classroom server\u2026", style = MaterialTheme.typography.bodyMedium)
+                Text("One moment…", style = MaterialTheme.typography.bodyMedium)
             }
         }
-        Spacer(Modifier.height(20.dp))
-        SecondaryRail(
+        if (nfcCapability == NfcCapability.NFC_OFF) {
+            Spacer(Modifier.height(12.dp))
+            FilledTonalButton(
+                onClick = { context.startActivity(android.content.Intent(Settings.ACTION_NFC_SETTINGS)) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) { Text("Turn on NFC") }
+        }
+        Spacer(Modifier.weight(1f))
+        QuietLinkRow(
             items = listOf(
                 "Today" to onBack,
                 "History" to onNavigateToHistory,
@@ -199,30 +180,23 @@ fun HomeScreen(
             ),
             enabled = !isFocusActive && !isTransitioning
         )
-        if (isFocusActive) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Tools stay closed while class is live.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary
-            )
-        }
         if (BuildConfig.DEBUG) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
             FilledTonalButton(
                 onClick = { focusViewModel.onTagEvent("1D:1D:70:1C:1A:10:80") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isTransitioning,
                 shape = RoundedCornerShape(16.dp)
-            ) { Text("Debug: Pilot Room A UID") }
+            ) { Text("Debug: Pilot Room A") }
         }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
 private fun enforcementLabel(status: EnforcementStatus): String = when (status) {
-    EnforcementStatus.ENFORCEMENT_ACTIVE -> "enforcing"
-    EnforcementStatus.ENFORCEMENT_SIMULATED -> "simulated"
-    EnforcementStatus.ENFORCEMENT_DEGRADED -> "fail-closed"
+    EnforcementStatus.ENFORCEMENT_ACTIVE -> "locked"
+    EnforcementStatus.ENFORCEMENT_SIMULATED -> "practice"
+    EnforcementStatus.ENFORCEMENT_DEGRADED -> "hold"
     EnforcementStatus.ENFORCEMENT_FAILED -> "failed"
     EnforcementStatus.IDLE -> "idle"
     else -> status.name.lowercase().replace('_', ' ')
