@@ -104,7 +104,7 @@ object DashboardStatsCalculator {
             topDistraction = todayStats.topDistraction,
             activeSession = sessions.find { it.status == SessionStatus.IN_PROGRESS },
             recentSessions = sessions.take(3).map { session ->
-                val sessionEvents = events.filter { it.sessionId == session.sessionId },
+                val sessionEvents = events.filter { it.sessionId == session.sessionId }
                 val duration = if (session.endAt != null) {
                     session.endAt - session.startAt
                 } else if (session.status == SessionStatus.IN_PROGRESS) {
