@@ -1,5 +1,6 @@
 package com.focustag.app.ui.components
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -8,10 +9,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +31,46 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+
+@Composable
+fun FunkyStage(content: @Composable BoxScope.() -> Unit) {
+    val motion = rememberInfiniteTransition(label = "blobs")
+    val drift by motion.animateFloat(
+        initialValue = -18f,
+        targetValue = 22f,
+        animationSpec = infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Reverse),
+        label = "drift"
+    )
+    val lift by motion.animateFloat(
+        initialValue = 10f,
+        targetValue = -16f,
+        animationSpec = infiniteRepeatable(tween(3600, easing = LinearEasing), RepeatMode.Reverse),
+        label = "lift"
+    )
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(
+            Modifier
+                .size(180.dp)
+                .offset(x = (-40).dp, y = 120.dp + drift.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f), CircleShape)
+        )
+        Box(
+            Modifier
+                .size(140.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 28.dp, y = 40.dp + lift.dp)
+                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), CircleShape)
+        )
+        Box(
+            Modifier
+                .size(90.dp)
+                .align(Alignment.BottomEnd)
+                .offset(x = (-12).dp, y = (-80).dp)
+                .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.14f), CircleShape)
+        )
+        content()
+    }
+}
 
 @Composable
 fun ClassroomTopBar(
@@ -95,17 +139,17 @@ fun PulseDot(active: Boolean) {
     val transition = rememberInfiniteTransition(label = "pulse")
     val scale by transition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.35f,
+        targetValue = 1.45f,
         animationSpec = infiniteRepeatable(
-            animation = tween(if (active) 900 else 1400),
+            animation = tween(if (active) 700 else 1300),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
     )
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(14.dp)) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(16.dp)) {
         Box(
             modifier = Modifier
-                .size(10.dp)
+                .size(12.dp)
                 .scale(scale)
                 .background(
                     color = if (active) MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)
@@ -134,7 +178,7 @@ fun QuietLinkRow(items: List<Pair<String, () -> Unit>>, enabled: Boolean) {
             Surface(
                 onClick = onClick,
                 enabled = enabled,
-                color = MaterialTheme.colorScheme.background,
+                color = MaterialTheme.colorScheme.background.copy(alpha = 0f),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.height(40.dp)
             ) {
