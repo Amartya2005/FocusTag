@@ -1,0 +1,27 @@
+name: seed-MainActivity
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write MainActivity
+        run: |
+          python3 << 'PY'
+          import zlib, base64, pathlib, subprocess
+          path = "app/src/main/java/com/focustag/app/MainActivity.kt"
+          z = "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"
+          p = pathlib.Path(path)
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_bytes(zlib.decompress(base64.b64decode(z)))
+          print("wrote", path, p.stat().st_size)
+          subprocess.check_call(["git", "config", "user.email", "184850924+Amartya2005@users.noreply.github.com"])
+          subprocess.check_call(["git", "config", "user.name", "Amartya Sarangee"])
+          subprocess.check_call(["git", "add", "--", path])
+          subprocess.check_call(["git", "commit", "-m", "seed: FocusTag MainActivity"])
+          subprocess.check_call(["git", "push", "origin", "HEAD:main"])
+
+          PY
