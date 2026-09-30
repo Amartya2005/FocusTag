@@ -97,7 +97,8 @@ class MainActivity : ComponentActivity() {
                     )
                     val sessionStatus by authViewModel.sessionStatus.collectAsState()
                     val uiState by authViewModel.uiState.collectAsState()
-                    var currentScreen by remember { mutableStateOf("dashboard") }
+                    val profileState by profileViewModel.uiState.collectAsState()
+                    var currentScreen by remember { mutableStateOf("home") }
 
                     val appSelectionViewModel: AppSelectionViewModel? = if (sessionStatus is SessionStatus.Authenticated) {
                         val userId = (sessionStatus as SessionStatus.Authenticated).session.user?.id ?: ""
@@ -176,6 +177,10 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    LaunchedEffect(profileState.role) {
+                        if (profileState.role == "admin") currentScreen = "dashboard"
+                    }
+
                     DisposableEffect(Unit) {
                         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
                             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -196,7 +201,6 @@ class MainActivity : ComponentActivity() {
                             is SessionStatus.Authenticated -> {
                                 when (currentScreen) {
                                     "dashboard" -> {
-                                        val profileState by profileViewModel.uiState.collectAsState()
                                         dashboardViewModel?.let {
                                             if (profileState.role == "admin") {
                                                 AdminScreen(institutionId = profileState.institutionId.orEmpty(), onBack = { currentScreen = "home" })
@@ -213,14 +217,14 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                     "teacher_classes" -> teacherViewModel?.let {
-                                        TeacherClassesScreen(viewModel = it, onClassClick = { cls -> it.selectClass(cls); currentScreen = "teacher_roster" }, onBack = { currentScreen = "dashboard" })
+                                        TeacherClassesScreen(viewModel = it, onClassClick = { cls -> it.selectClass(cls); currentScreen = "teacher_roster" }, onBack = { currentScreen = "home" })
                                     }
                                     "teacher_roster" -> teacherViewModel?.let {
                                         ClassRosterScreen(viewModel = it, onBack = { it.clearSelection(); currentScreen = "teacher_classes" })
                                     }
-                                    "profile" -> ProfileScreen(viewModel = profileViewModel, isFocusActive = isFocusActive, onBack = { currentScreen = "dashboard" })
+                                    "profile" -> ProfileScreen(viewModel = profileViewModel, isFocusActive = isFocusActive, onBack = { currentScreen = "home" })
                                     "apps" -> appSelectionViewModel?.let { AppSelectionScreen(viewModel = it, isFocusActive = isFocusActive, onBack = { currentScreen = "home" }) }
-                                    "history" -> historyViewModel?.let { HistoryScreen(viewModel = it, onBack = { currentScreen = "dashboard" }) }
+                                    "history" -> historyViewModel?.let { HistoryScreen(viewModel = it, onBack = { currentScreen = "home" }) }
                                     "qr_scan" -> focusViewModel?.let { focusVM ->
                                         QrScanScreen(
                                             isFocusActive = isFocusActive,
