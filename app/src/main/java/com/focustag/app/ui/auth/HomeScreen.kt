@@ -118,8 +118,7 @@ fun HomeScreen(
             )
             Spacer(Modifier.height(12.dp))
             Surface(
-                onClick = { if (!isTransitioning) onNavigateToQr() },
-                enabled = !isTransitioning,
+                onClick = onNavigateToQr,
                 interactionSource = press,
                 shape = RoundedCornerShape(36.dp),
                 color = cardColor,
@@ -193,7 +192,7 @@ fun HomeScreen(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.size(8.dp))
-                    Text("One moment…", style = MaterialTheme.typography.bodyMedium)
+                    Text("Checking the door", style = MaterialTheme.typography.bodyMedium)
                 }
             }
             if (nfcCapability == NfcCapability.NFC_OFF) {
@@ -211,7 +210,7 @@ fun HomeScreen(
                     "History" to onNavigateToHistory,
                     "Apps" to onNavigateToApps
                 ),
-                enabled = !isFocusActive && !isTransitioning
+                enabled = !isFocusActive
             )
         }
     }

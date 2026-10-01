@@ -32,7 +32,7 @@ class AppSelectionViewModel(
 
     fun refreshApps() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = it.resolvedPolicies.isEmpty()) }
             try {
                 val apps = inventoryRepository.getInstalledApps()
                 val blocked = policyRepository.getBlockedApps()

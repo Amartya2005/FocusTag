@@ -51,7 +51,7 @@ fun AppSelectionScreen(viewModel: AppSelectionViewModel, isFocusActive: Boolean,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
-            if (state.isLoading) {
+            if (state.isLoading && state.resolvedPolicies.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
