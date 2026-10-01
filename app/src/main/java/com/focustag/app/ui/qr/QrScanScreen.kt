@@ -2,6 +2,13 @@ package com.focustag.app.ui.qr
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.app.Activity
+import android.view.WindowManager
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -79,8 +86,10 @@ fun QrScanScreen(
     }
 
     DisposableEffect(Unit) {
+        val window = (context as? Activity)?.window
+        window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         if (!hasCamera) permissionLauncher.launch(Manifest.permission.CAMERA)
-        onDispose { }
+        onDispose { window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 
     Column(
@@ -109,14 +118,14 @@ fun QrScanScreen(
                     .clip(RoundedCornerShape(28.dp))
                     .background(InkRaised)
             ) {
-                CameraBarcodePreview(onRaw = { raw ->
-                    val uid = TagLinkParser.extractUid(raw)
-                    if (uid == null) error = "Not a classroom code"
-                    else {
-                        error = null
-                        onUidResolved(uid)
-                    }
-                })
+                CameraBarcodePreview(
+                    onRaw = { raw ->
+                        val uid = TagLinkParser.extractUid(raw)
+                        if (uid == null) error = "Not a classroom code"
+                        else onUidResolved(uid)
+                    },
+                    onError = { error = it }
+                )
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -147,52 +156,67 @@ fun QrScanScreen(
 
 @OptIn(ExperimentalGetImage::class)
 @Composable
-private fun CameraBarcodePreview(onRaw: (String) -> Unit) {
+private fun CameraBarcodePreview(onRaw: (String) -> Unit, onError: (String) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val consumed = remember { AtomicBoolean(false) }
     val executor = remember { Executors.newSingleThreadExecutor() }
-    DisposableEffect(Unit) { onDispose { executor.shutdown() } }
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { ctx ->
-            PreviewView(ctx).apply {
-                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                scaleType = PreviewView.ScaleType.FILL_CENTER
-            }
-        },
-        update = { previewView ->
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-            cameraProviderFuture.addListener({
-                try {
-                    val cameraProvider = cameraProviderFuture.get()
-                    val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
-                    val options = BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-                    val scanner = BarcodeScanning.getClient(options)
-                    val analysis = ImageAnalysis.Builder()
-                        .setTargetResolution(android.util.Size(960, 540))
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .build()
-                    analysis.setAnalyzer(executor) { imageProxy ->
-                        val mediaImage = imageProxy.image
-                        if (mediaImage == null || consumed.get()) {
-                            imageProxy.close()
-                            return@setAnalyzer
-                        }
-                        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                        scanner.process(image)
-                            .addOnSuccessListener { barcodes ->
-                                val raw = barcodes.firstOrNull()?.rawValue
-                                if (!raw.isNullOrBlank() && consumed.compareAndSet(false, true)) onRaw(raw)
-                            }
-                            .addOnCompleteListener { imageProxy.close() }
-                    }
-                    cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
-                } catch (e: Exception) {
-                    Log.e("QrScanScreen", "Camera bind failed", e)
-                }
-            }, ContextCompat.getMainExecutor(context))
+    val previewView = remember {
+        PreviewView(context).apply {
+            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
         }
-    )
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_DESTROY) executor.shutdown()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            executor.shutdown()
+        }
+    }
+    LaunchedEffect(previewView) {
+        val future = ProcessCameraProvider.getInstance(context)
+        future.addListener({
+            try {
+                val cameraProvider = future.get()
+                val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+                val scanner = BarcodeScanning.getClient(
+                    BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
+                )
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .setResolutionSelector(
+                        ResolutionSelector.Builder()
+                            .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                            .build()
+                    )
+                    .build()
+                analysis.setAnalyzer(executor) { imageProxy ->
+                    val mediaImage = imageProxy.image
+                    if (mediaImage == null || consumed.get()) {
+                        imageProxy.close()
+                        return@setAnalyzer
+                    }
+                    val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                    scanner.process(image)
+                        .addOnSuccessListener { barcodes ->
+                            val raw = barcodes.firstOrNull()?.rawValue
+                            if (!raw.isNullOrBlank() && consumed.compareAndSet(false, true)) onRaw(raw)
+                        }
+                        .addOnFailureListener { consumed.set(false) }
+                        .addOnCompleteListener { imageProxy.close() }
+                }
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+            } catch (e: Exception) {
+                Log.e("QrScanScreen", "Camera bind failed", e)
+                onError("Camera did not start. Try again.")
+            }
+        }, ContextCompat.getMainExecutor(context))
+    }
+    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 }
