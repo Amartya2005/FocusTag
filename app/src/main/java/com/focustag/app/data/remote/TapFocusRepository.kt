@@ -2,6 +2,7 @@ package com.focustag.app.data.remote
 
 import android.util.Log
 import com.focustag.app.data.model.AcsHealth
+import com.focustag.app.data.model.EntrySource
 import com.focustag.app.data.model.TapFocusResponse
 import com.focustag.app.data.supabase.SupabaseModule
 import io.github.jan.supabase.postgrest.postgrest
@@ -19,6 +20,7 @@ open class TapFocusRepository {
         tagUid: String,
         installUuid: String,
         acsHealth: AcsHealth,
+        entrySource: EntrySource? = null,
         idempotencyKey: UUID = UUID.randomUUID(),
         force: Boolean = false,
         targetStudentId: String? = null
@@ -30,6 +32,7 @@ open class TapFocusRepository {
                 put("p_idempotency_key", idempotencyKey.toString())
                 put("p_acs_health", acsHealth.name)
                 put("p_force", force)
+                if (entrySource != null) put("p_entry_source", entrySource.name.lowercase())
                 if (targetStudentId != null) put("p_target_student_id", targetStudentId)
             }
             val response = SupabaseModule.client.postgrest.rpc("tap_focus", payload).decodeAs<TapFocusResponse>()

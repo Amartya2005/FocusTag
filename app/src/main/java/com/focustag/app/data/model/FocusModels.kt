@@ -5,9 +5,15 @@ enum class FocusState {
     FOCUS_ACTIVE
 }
 
+enum class EntrySource {
+    NFC,
+    QR
+}
+
 data class FocusSessionState(
     val focusState: FocusState = FocusState.NORMAL,
-    val activeTagId: String? = null
+    val activeTagId: String? = null,
+    val entrySource: EntrySource? = null
 )
 
 /**

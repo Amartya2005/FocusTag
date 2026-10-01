@@ -56,6 +56,7 @@ import com.focustag.app.ui.teacher.TeacherClassesScreen
 import com.focustag.app.ui.teacher.TeacherViewModel
 import com.focustag.app.ui.theme.FocusTagTheme
 import com.focustag.app.util.NfcController
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.Dispatchers
@@ -237,7 +238,7 @@ class MainActivity : ComponentActivity() {
                                     "qr_scan" -> focusViewModel?.let { focusVM ->
                                         QrScanScreen(
                                             isFocusActive = isFocusActive,
-                                            onUidResolved = { uid -> focusVM.onTagEvent(uid); currentScreen = "home" },
+                                            onUidResolved = { uid -> focusVM.onTagEvent(uid, com.focustag.app.data.model.EntrySource.QR); currentScreen = "home" },
                                             onCancel = { currentScreen = "home" }
                                         )
                                     }
