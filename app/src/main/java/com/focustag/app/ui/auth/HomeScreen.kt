@@ -39,7 +39,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.focustag.app.data.model.EntrySource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -98,13 +103,19 @@ fun HomeScreen(
         else -> "Guest"
     }
     val isFocusActive = focusSessionState.focusState == FocusState.FOCUS_ACTIVE
-    val cardColor by animateColorAsState(
-        targetValue = if (isFocusActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-        label = "doorColor"
-    )
+    val cardBrush = if (isFocusActive) {
+        Brush.verticalGradient(listOf(Color(0xFF3A2A22), Color(0xFF1B2428)))
+    } else {
+        Brush.verticalGradient(listOf(Color(0xFF243038), Color(0xFF12181C)))
+    }
     val press = remember { MutableInteractionSource() }
     val pressed by press.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(if (pressed) 0.98f else 1f, label = "press")
+    val pressScale by animateFloatAsState(if (pressed) 0.975f else 1f, label = "press")
+    val doorLabel = when (focusSessionState.entrySource) {
+        EntrySource.NFC -> "Leave with the tag"
+        EntrySource.QR -> "Leave with the code"
+        null -> "Hold the tag, or tap to scan"
+    }
 
     FunkyStage {
         Column(
@@ -120,19 +131,24 @@ fun HomeScreen(
             Surface(
                 onClick = onNavigateToQr,
                 interactionSource = press,
-                shape = RoundedCornerShape(36.dp),
-                color = cardColor,
-                shadowElevation = 0.dp,
+                shape = RoundedCornerShape(40.dp),
+                color = Color.Transparent,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .scale(pressScale)
             ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(40.dp))
+                        .background(cardBrush),
+                    contentAlignment = Alignment.Center
+                ) {
                     DoorHalo(active = isFocusActive)
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                         modifier = Modifier.padding(28.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -140,44 +156,40 @@ fun HomeScreen(
                             Text(
                                 if (isFocusActive) "LIVE" else "READY",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = if (isFocusActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary,
+                                color = if (isFocusActive) Color(0xFFE7B08A) else Color(0xFF8FE3DC),
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         AnimatedContent(
                             targetState = isFocusActive,
-                            transitionSpec = { fadeIn() togetherWith fadeOut() },
+                            transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(180)) },
                             label = "focusCopy"
                         ) { live ->
                             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
-                                    if (live) "Focus on" else "Focus off",
+                                    if (live) "In class" else "At the door",
                                     style = MaterialTheme.typography.displaySmall,
+                                    color = Color(0xFFF6F1E8),
                                     textAlign = TextAlign.Center
                                 )
                                 Text(
-                                    if (live) "Hold the tag or tap anywhere to leave."
-                                    else "Hold the tag or tap anywhere to scan.",
+                                    if (live) doorLabel else "Hold the tag, or tap to scan.",
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = Color(0xFFD5D0C6),
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
-                        Text(
-                            when (nfcCapability) {
-                                NfcCapability.NFC_READY -> "NFC ready"
-                                NfcCapability.NFC_OFF -> "NFC off"
-                                NfcCapability.NFC_UNAVAILABLE -> "Scan"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (enforcementStatus != EnforcementStatus.IDLE) {
+                        Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.08f)) {
                             Text(
-                                enforcementLabel(enforcementStatus),
+                                when (nfcCapability) {
+                                    NfcCapability.NFC_READY -> "NFC ready"
+                                    NfcCapability.NFC_OFF -> "NFC off"
+                                    NfcCapability.NFC_UNAVAILABLE -> "Scan only"
+                                },
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                                 style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFFF6F1E8)
                             )
                         }
                     }
@@ -220,23 +232,28 @@ fun HomeScreen(
 private fun DoorHalo(active: Boolean) {
     val motion = rememberInfiniteTransition(label = "halo")
     val swell by motion.animateFloat(
-        initialValue = 0.86f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(tween(if (active) 1600 else 2400, easing = LinearEasing), RepeatMode.Reverse),
+        initialValue = 0.92f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(tween(if (active) 1400 else 2200, easing = LinearEasing), RepeatMode.Reverse),
         label = "swell"
     )
-    val color = if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+    val ring = if (active) Color(0xFFE7B08A) else Color(0xFF8FE3DC)
     Box(
         modifier = Modifier
-            .size(240.dp)
+            .size(260.dp)
             .scale(swell)
-            .border(1.5.dp, color.copy(alpha = 0.22f), CircleShape)
+            .border(1.5.dp, ring.copy(alpha = 0.35f), CircleShape)
     )
     Box(
         modifier = Modifier
-            .size(170.dp)
+            .size(188.dp)
             .scale(2f - swell)
-            .border(1.dp, color.copy(alpha = 0.16f), CircleShape)
+            .border(2.dp, ring.copy(alpha = 0.7f), CircleShape)
+    )
+    Box(
+        modifier = Modifier
+            .size(18.dp)
+            .background(ring.copy(alpha = 0.9f), CircleShape)
     )
 }
 
