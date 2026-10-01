@@ -170,25 +170,31 @@ fun PulseDot(active: Boolean) {
 
 @Composable
 fun QuietLinkRow(items: List<Pair<String, () -> Unit>>, enabled: Boolean) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 1.dp
     ) {
-        items.forEach { (label, onClick) ->
-            Surface(
-                onClick = onClick,
-                enabled = enabled,
-                color = MaterialTheme.colorScheme.background.copy(alpha = 0f),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.height(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp)) {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.outline
-                    )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            items.forEach { (label, onClick) ->
+                Surface(
+                    onClick = onClick,
+                    enabled = enabled,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f).height(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+                        )
+                    }
                 }
             }
         }
