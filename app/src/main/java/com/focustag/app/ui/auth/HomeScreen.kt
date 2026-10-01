@@ -128,71 +128,67 @@ fun HomeScreen(
                 trailing = { InitialsAvatar(userEmail, onClick = if (isFocusActive) null else onNavigateToProfile) }
             )
             Spacer(Modifier.height(12.dp))
+            val source = focusSessionState.entrySource
+            val nfcLive = isFocusActive && source == EntrySource.NFC
+            val qrLive = isFocusActive && source == EntrySource.QR
             Surface(
-                onClick = onNavigateToQr,
-                interactionSource = press,
-                shape = RoundedCornerShape(40.dp),
+                shape = RoundedCornerShape(32.dp),
                 color = Color.Transparent,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .scale(pressScale)
+                modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
                 Box(
-                    Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(40.dp))
-                        .background(cardBrush),
+                    Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp)).background(
+                        if (nfcLive) Brush.verticalGradient(listOf(Color(0xFF3A2A22), Color(0xFF1B2428)))
+                        else Brush.verticalGradient(listOf(Color(0xFF243038), Color(0xFF12181C)))
+                    ),
                     contentAlignment = Alignment.Center
                 ) {
-                    DoorHalo(active = isFocusActive)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.padding(28.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PulseDot(active = isFocusActive)
-                            Text(
-                                if (isFocusActive) "LIVE" else "READY",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = if (isFocusActive) Color(0xFFE7B08A) else Color(0xFF8FE3DC),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        AnimatedContent(
-                            targetState = isFocusActive,
-                            transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(180)) },
-                            label = "focusCopy"
-                        ) { live ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    if (live) "In class" else "At the door",
-                                    style = MaterialTheme.typography.displaySmall,
-                                    color = Color(0xFFF6F1E8),
-                                    textAlign = TextAlign.Center
-                                )
-                                Text(
-                                    if (live) doorLabel else "Hold the tag, or tap to scan.",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = Color(0xFFD5D0C6),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                        Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.08f)) {
-                            Text(
-                                when (nfcCapability) {
-                                    NfcCapability.NFC_READY -> "NFC ready"
-                                    NfcCapability.NFC_OFF -> "NFC off"
-                                    NfcCapability.NFC_UNAVAILABLE -> "Scan only"
-                                },
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Color(0xFFF6F1E8)
-                            )
-                        }
+                    DoorHalo(active = nfcLive)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("NFC", color = Color(0xFFE7B08A), style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            when {
+                                nfcLive -> "Tap the tag to leave"
+                                qrLive -> "QR class is on"
+                                else -> "Hold the tag to start"
+                            },
+                            color = Color(0xFFF6F1E8),
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            when (nfcCapability) {
+                                NfcCapability.NFC_READY -> "Tag door ready"
+                                NfcCapability.NFC_OFF -> "Turn NFC on"
+                                NfcCapability.NFC_UNAVAILABLE -> "This phone has no NFC"
+                            },
+                            color = Color(0xFFD5D0C6),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                onClick = onNavigateToQr,
+                shape = RoundedCornerShape(28.dp),
+                color = if (qrLive) Color(0xFF3A2A22) else Color(0xFF16343A),
+                modifier = Modifier.fillMaxWidth().height(132.dp)
+            ) {
+                Column(
+                    Modifier.fillMaxSize().padding(20.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text("QR", color = Color(0xFF8FE3DC), style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        when {
+                            qrLive -> "Scan the code to leave"
+                            nfcLive -> "Tag class is on. QR cannot end it."
+                            else -> "Scan the code to start"
+                        },
+                        color = Color(0xFFF6F1E8),
+                        style = MaterialTheme.typography.titleLarge
+                    )
                 }
             }
             lastTapMessage?.let {
