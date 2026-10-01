@@ -166,10 +166,10 @@ open class FocusViewModel(
     }
 
     fun onSimulatedTagTap() {
-        if (BuildConfig.DEBUG) onTagEvent("simulated_tag_01")
+        if (BuildConfig.DEBUG) onTagEvent("simulated_tag_01", EntrySource.NFC)
     }
 
-    fun onTagEvent(tagId: String) {
+    fun onTagEvent(tagId: String, source: EntrySource = EntrySource.NFC) {
         if (_isTransitioning.value) return
         refreshAccessibilityCapability()
         val acsReady = _accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY
@@ -194,10 +194,15 @@ open class FocusViewModel(
             _lastTapMessage.update { humanizeTapError("unknown_or_inactive_tag") }
             return
         }
+        val activeSource = _focusState.value.entrySource
+        if (_focusState.value.focusState == FocusState.FOCUS_ACTIVE && activeSource != null && activeSource != source) {
+            _lastTapMessage.update { humanizeTapError("entry_mismatch:${activeSource.name.lowercase()}") }
+            return
+        }
         if (!passesAcceptedDebounce(normalized)) return
         viewModelScope.launch {
             _isTransitioning.update { true }
-            try { executeServerAuthoritativeTap(normalized) }
+            try { executeServerAuthoritativeTap(normalized, source) }
             catch (e: Exception) { _lastTapMessage.update { e.message ?: "Could not start the session." } }
             finally { _isTransitioning.update { false } }
         }
@@ -214,11 +219,11 @@ open class FocusViewModel(
         lastAcceptedAtMs = System.currentTimeMillis()
     }
 
-    private suspend fun executeServerAuthoritativeTap(normalizedTagId: String) {
+    private suspend fun executeServerAuthoritativeTap(normalizedTagId: String, source: EntrySource) {
         val ctx = context ?: return
         val installUuid = InstallIdStore.getOrCreate(ctx)
         val acsHealth = if (_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY) AcsHealth.HEALTHY else AcsHealth.FAILED
-        val result = tapFocusRepository.tapFocus(tagUid = normalizedTagId, installUuid = installUuid, acsHealth = acsHealth, idempotencyKey = UUID.randomUUID())
+        val result = tapFocusRepository.tapFocus(tagUid = normalizedTagId, installUuid = installUuid, acsHealth = acsHealth, entrySource = source, idempotencyKey = UUID.randomUUID())
         val response = result.getOrNull()
         if (response == null || !response.accepted) {
             _lastTapMessage.update { humanizeTapError(response?.error ?: result.exceptionOrNull()?.message) }
@@ -230,7 +235,7 @@ open class FocusViewModel(
             ServerFocusState.FOCUS_ACTIVE -> {
                 enforcementCoordinator.startEnforcement(normalizedTagId)
                 if (isEnforcementActive()) {
-                    val newState = FocusSessionState(FocusState.FOCUS_ACTIVE, normalizedTagId)
+                    val newState = FocusSessionState(FocusState.FOCUS_ACTIVE, normalizedTagId, source)
                     focusRepository.saveFocusSessionState(newState)
                     _focusState.update { newState }
                 }
@@ -238,7 +243,7 @@ open class FocusViewModel(
             ServerFocusState.ENDED -> {
                 enforcementCoordinator.stopEnforcement()
                 if (enforcementCoordinator.status.value == EnforcementStatus.IDLE) {
-                    val newState = FocusSessionState(FocusState.NORMAL, null)
+                    val newState = FocusSessionState(FocusState.NORMAL, null, null)
                     focusRepository.saveFocusSessionState(newState)
                     _focusState.update { newState }
                 }
@@ -279,6 +284,8 @@ open class FocusViewModel(
         "unknown_or_inactive_tag" -> "That tag is not registered for a class."
         "unauthenticated" -> "Sign in again, then tap or scan."
         "forbidden_force_release" -> "Not allowed to force-release that session."
+        "entry_mismatch", "entry_mismatch:nfc" -> "This class started with the NFC tag. Tap that tag to leave."
+        "entry_mismatch:qr" -> "This class started with the QR. Scan that code to leave."
         null -> "Could not start the session. Try again."
         else -> code
     }

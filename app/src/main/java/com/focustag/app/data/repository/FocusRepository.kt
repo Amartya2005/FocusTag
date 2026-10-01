@@ -2,6 +2,7 @@ package com.focustag.app.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.focustag.app.data.model.EntrySource
 import com.focustag.app.data.model.FocusSessionState
 import com.focustag.app.data.model.FocusState
 
@@ -14,6 +15,7 @@ open class FocusRepository(private val context: Context?, private val userId: St
     private companion object {
         const val KEY_FOCUS_STATE = "focus_state"
         const val KEY_ACTIVE_TAG_ID = "active_tag_id"
+        const val KEY_ENTRY_SOURCE = "entry_source"
     }
 
     open fun getFocusSessionState(): FocusSessionState {
@@ -24,13 +26,17 @@ open class FocusRepository(private val context: Context?, private val userId: St
             FocusState.NORMAL
         }
         val activeTagId = prefs.getString(KEY_ACTIVE_TAG_ID, null)
-        return FocusSessionState(focusState, activeTagId)
+        val entrySource = prefs.getString(KEY_ENTRY_SOURCE, null)?.let {
+            runCatching { EntrySource.valueOf(it) }.getOrNull()
+        }
+        return FocusSessionState(focusState, activeTagId, entrySource)
     }
 
     open fun saveFocusSessionState(state: FocusSessionState) {
         prefs.edit().apply {
             putString(KEY_FOCUS_STATE, state.focusState.name)
             putString(KEY_ACTIVE_TAG_ID, state.activeTagId)
+            if (state.entrySource == null) remove(KEY_ENTRY_SOURCE) else putString(KEY_ENTRY_SOURCE, state.entrySource.name)
             apply()
         }
     }
