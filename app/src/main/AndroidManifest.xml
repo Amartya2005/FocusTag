@@ -72,14 +72,6 @@
                 android:resource="@xml/nfc_tech_filter" />
         </activity>
 
-        <activity
-            android:name=".ui.banner.CaughtBannerActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
-            android:theme="@style/Theme.FocusTag.Banner" />
-
         <receiver
             android:name=".data.receiver.FocusDeviceAdminReceiver"
             android:description="@string/app_name"
