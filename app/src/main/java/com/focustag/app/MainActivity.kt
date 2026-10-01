@@ -44,7 +44,6 @@ import com.focustag.app.ui.apps.AppSelectionViewModel
 import com.focustag.app.ui.auth.AuthViewModel
 import com.focustag.app.ui.auth.HomeScreen
 import com.focustag.app.ui.auth.LoginScreen
-import com.focustag.app.ui.auth.SignupScreen
 import com.focustag.app.ui.focus.FocusViewModel
 import com.focustag.app.ui.history.HistoryScreen
 import com.focustag.app.ui.history.HistoryViewModel
@@ -100,7 +99,6 @@ class MainActivity : ComponentActivity() {
                         val cached = runCatching { SupabaseModule.client.auth.currentSessionOrNull() }.getOrNull()
                         if (cached != null) SessionStatus.Authenticated(cached) else liveSession
                     } else liveSession
-                    val uiState by authViewModel.uiState.collectAsState()
                     val profileState by profileViewModel.uiState.collectAsState()
                     var currentScreen by remember { mutableStateOf("home") }
 
@@ -254,7 +252,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
-                            else -> if (uiState.isLoginMode) LoginScreen(viewModel = authViewModel) else SignupScreen(viewModel = authViewModel)
+                            else -> LoginScreen(viewModel = authViewModel)
                         }
                     }
                 }
