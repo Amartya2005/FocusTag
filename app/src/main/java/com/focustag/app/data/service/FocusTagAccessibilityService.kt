@@ -1,7 +1,14 @@
 package com.focustag.app.data.service
 
 import android.accessibilityservice.AccessibilityService
-import android.util.Log
+import android.graphics.Color
+import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
+import android.view.WindowManager
+import android.widget.TextView
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.focustag.app.FocusTagApp
@@ -22,12 +29,22 @@ data class AccessibilitySessionState(
 
 class FocusTagAccessibilityService : AccessibilityService() {
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var bannerView: TextView? = null
+
     companion object {
         const val TAG = "FocusTagAccessibility"
         val sessionState = AtomicReference(AccessibilitySessionState())
 
         @Volatile
         private var instance: FocusTagAccessibilityService? = null
+        private val LINES = listOf(
+            "%s tried to sneak in. The door said no.",
+            "Nice try. %s is sitting this class out.",
+            "%s is in timeout. You are not.",
+            "Plot twist: %s can wait until the bell.",
+            "Caught. %s goes back in the bag."
+        )
 
         fun updateSessionState(newState: AccessibilitySessionState) {
             val previous = sessionState.getAndSet(newState)
@@ -117,14 +134,13 @@ class FocusTagAccessibilityService : AccessibilityService() {
                 else -> "POLICY"
             }
             Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className")
-            if (performGlobalAction(GLOBAL_ACTION_HOME)) {
-                if (reason == "POLICY") showCaughtBanner(pkgName)
-                if (pkgName != lastAnalyticsPackage || (currentTime - lastAnalyticsTime) >= ANALYTICS_DEBOUNCE_MS) {
-                    SessionHistoryRepository(applicationContext, state.ownerUserId)
-                        .emitInterceptionEvent(state.sessionId, pkgName)
-                    lastAnalyticsTime = currentTime
-                    lastAnalyticsPackage = pkgName
-                }
+            if (reason == "POLICY") showCaughtBanner(pkgName)
+            performGlobalAction(GLOBAL_ACTION_HOME)
+            if (pkgName != lastAnalyticsPackage || (currentTime - lastAnalyticsTime) >= ANALYTICS_DEBOUNCE_MS) {
+                SessionHistoryRepository(applicationContext, state.ownerUserId)
+                    .emitInterceptionEvent(state.sessionId, pkgName)
+                lastAnalyticsTime = currentTime
+                lastAnalyticsPackage = pkgName
             }
             lastInterceptionTime = currentTime
             lastInteractedPackage = pkgName
@@ -137,10 +153,46 @@ class FocusTagAccessibilityService : AccessibilityService() {
         val label = runCatching {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkgName, 0)).toString()
         }.getOrDefault("That app")
-        val intent = android.content.Intent(this, com.focustag.app.ui.banner.CaughtBannerActivity::class.java)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .putExtra(com.focustag.app.ui.banner.CaughtBannerActivity.EXTRA_APP, label)
-        startActivity(intent)
+        val line = LINES.random().format(label)
+        mainHandler.post {
+            val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+            bannerView?.let { runCatching { wm.removeView(it) } }
+            val view = TextView(this).apply {
+                text = "NOPE\n$line"
+                setTextColor(Color.parseColor("#F6F1E8"))
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(56, 44, 56, 44)
+                background = GradientDrawable().apply {
+                    cornerRadius = 64f
+                    setColor(Color.parseColor("#1B2428"))
+                }
+                setOnClickListener { hideBanner() }
+            }
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.BOTTOM
+                y = 48
+            }
+            runCatching { wm.addView(view, params) }
+                .onSuccess { bannerView = view }
+                .onFailure { Log.e(TAG, "Banner failed: ${it.message}") }
+            mainHandler.removeCallbacks(hideBannerRunnable)
+            mainHandler.postDelayed(hideBannerRunnable, 2600)
+        }
+    }
+
+    private val hideBannerRunnable = Runnable { hideBanner() }
+
+    private fun hideBanner() {
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        bannerView?.let { runCatching { wm.removeView(it) } }
+        bannerView = null
     }
 
     private fun collectWindowText(event: AccessibilityEvent): String {
@@ -175,6 +227,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        hideBanner()
         if (instance === this) instance = null
         super.onDestroy()
     }
