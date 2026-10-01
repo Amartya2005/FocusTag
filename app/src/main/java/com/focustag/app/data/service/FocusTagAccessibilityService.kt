@@ -118,6 +118,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
             }
             Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className")
             if (performGlobalAction(GLOBAL_ACTION_HOME)) {
+                if (reason == "POLICY") showCaughtBanner(pkgName)
                 if (pkgName != lastAnalyticsPackage || (currentTime - lastAnalyticsTime) >= ANALYTICS_DEBOUNCE_MS) {
                     SessionHistoryRepository(applicationContext, state.ownerUserId)
                         .emitInterceptionEvent(state.sessionId, pkgName)
@@ -130,6 +131,16 @@ class FocusTagAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             Log.e(TAG, "Error processing event: ${e.message}")
         }
+    }
+
+    private fun showCaughtBanner(pkgName: String) {
+        val label = runCatching {
+            packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkgName, 0)).toString()
+        }.getOrDefault("That app")
+        val intent = android.content.Intent(this, com.focustag.app.ui.banner.CaughtBannerActivity::class.java)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(com.focustag.app.ui.banner.CaughtBannerActivity.EXTRA_APP, label)
+        startActivity(intent)
     }
 
     private fun collectWindowText(event: AccessibilityEvent): String {
