@@ -169,7 +169,10 @@ private fun CameraBarcodePreview(onRaw: (String) -> Unit) {
                     val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
                     val options = BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
                     val scanner = BarcodeScanning.getClient(options)
-                    val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
+                    val analysis = ImageAnalysis.Builder()
+                        .setTargetResolution(android.util.Size(960, 540))
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
                     analysis.setAnalyzer(executor) { imageProxy ->
                         val mediaImage = imageProxy.image
                         if (mediaImage == null || consumed.get()) {

@@ -25,7 +25,7 @@ class TeacherViewModel(private val repository: TeacherRepository) : ViewModel() 
 
     fun loadClasses() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = it.classes.isEmpty(), errorMessage = null) }
             repository.getMyClasses()
                 .onSuccess { classes ->
                     _uiState.update { it.copy(isLoading = false, classes = classes) }
@@ -43,7 +43,7 @@ class TeacherViewModel(private val repository: TeacherRepository) : ViewModel() 
 
     fun loadRoster(classId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = it.roster.isEmpty(), errorMessage = null) }
             repository.getClassRoster(classId)
                 .onSuccess { roster ->
                     _uiState.update { it.copy(isLoading = false, roster = roster) }

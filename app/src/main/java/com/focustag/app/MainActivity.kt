@@ -95,7 +95,11 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
-                    val sessionStatus by authViewModel.sessionStatus.collectAsState()
+                    val liveSession by authViewModel.sessionStatus.collectAsState()
+                    val sessionStatus = if (liveSession is SessionStatus.Initializing) {
+                        val cached = runCatching { SupabaseModule.client.auth.currentSessionOrNull() }.getOrNull()
+                        if (cached != null) SessionStatus.Authenticated(cached) else liveSession
+                    } else liveSession
                     val uiState by authViewModel.uiState.collectAsState()
                     val profileState by profileViewModel.uiState.collectAsState()
                     var currentScreen by remember { mutableStateOf("home") }
@@ -176,7 +180,7 @@ class MainActivity : ComponentActivity() {
                             focusViewModel?.refreshEnforcementStatus()
                             focusViewModel?.refreshAccessibilityCapability()
                             focusViewModel?.refreshNfcCapability()
-                            focusViewModel?.refreshRegistry(force = true)
+                            focusViewModel?.refreshRegistry()
                             SyncScheduler.scheduleSync(this@MainActivity, userId)
                         } else {
                             com.focustag.app.domain.NfcProtocol.setRegisteredTags(emptySet())
@@ -193,9 +197,7 @@ class MainActivity : ComponentActivity() {
                             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                                 focusViewModel?.refreshAccessibilityCapability()
                                 focusViewModel?.refreshNfcCapability()
-                                focusViewModel?.refreshRegistry(force = true)
-                                val userId = (sessionStatus as? SessionStatus.Authenticated)?.session?.user?.id
-                                userId?.let { SyncScheduler.scheduleSync(this@MainActivity, it) }
+                                focusViewModel?.refreshRegistry()
                             }
                         }
                         lifecycle.addObserver(observer)
