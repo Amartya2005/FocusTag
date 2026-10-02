@@ -191,8 +191,7 @@ open class FocusViewModel(
             return
         }
         if (!NfcProtocol.isRegistryEmpty() && !NfcProtocol.isRegistered(normalized)) {
-            _lastTapMessage.update { humanizeTapError("unknown_or_inactive_tag") }
-            return
+            refreshRegistry(force = true)
         }
         val activeSource = _focusState.value.entrySource
         if (_focusState.value.focusState == FocusState.FOCUS_ACTIVE && activeSource != null && activeSource != source) {
@@ -233,11 +232,15 @@ open class FocusViewModel(
         stampAcceptedDebounce(normalizedTagId)
         when (response.state) {
             ServerFocusState.FOCUS_ACTIVE -> {
-                enforcementCoordinator.startEnforcement(normalizedTagId)
-                if (isEnforcementActive()) {
-                    val newState = FocusSessionState(FocusState.FOCUS_ACTIVE, normalizedTagId, source)
-                    focusRepository.saveFocusSessionState(newState)
-                    _focusState.update { newState }
+                val classBlocks = tapFocusRepository.blockedPackagesForClass(response.classId)
+                enforcementCoordinator.startEnforcement(normalizedTagId, classBlocks)
+                val newState = FocusSessionState(FocusState.FOCUS_ACTIVE, normalizedTagId, source)
+                focusRepository.saveFocusSessionState(newState)
+                _focusState.update { newState }
+                if (!isEnforcementActive()) {
+                    _lastTapMessage.update { "Class is on, but the lock did not arm. Check Accessibility." }
+                } else if (classBlocks.isEmpty()) {
+                    _lastTapMessage.update { "Class is on. No apps are on the block list yet." }
                 }
             }
             ServerFocusState.ENDED -> {

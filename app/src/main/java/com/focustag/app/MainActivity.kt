@@ -238,7 +238,10 @@ class MainActivity : ComponentActivity() {
                                     "qr_scan" -> focusViewModel?.let { focusVM ->
                                         QrScanScreen(
                                             isFocusActive = isFocusActive,
-                                            onUidResolved = { uid -> focusVM.onTagEvent(uid, com.focustag.app.data.model.EntrySource.QR); currentScreen = "home" },
+                                            onUidResolved = { uid ->
+                                                focusVM.onTagEvent(uid, com.focustag.app.data.model.EntrySource.QR)
+                                                currentScreen = "home"
+                                            },
                                             onCancel = { currentScreen = "home" }
                                         )
                                     }
