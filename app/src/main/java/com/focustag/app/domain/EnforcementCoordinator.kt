@@ -62,7 +62,7 @@ open class EnforcementCoordinator(
         }
     }
 
-    open suspend fun startEnforcement(tagId: String? = null) = globalMutex.withLock {
+    open suspend fun startEnforcement(tagId: String? = null, classBlocked: Set<String> = emptySet()) = globalMutex.withLock {
         Log.d(TAG, "Starting enforcement...")
         
         // Check for device owner conflict
@@ -75,7 +75,7 @@ open class EnforcementCoordinator(
 
         // 1. Resolve Phase 3 policy
         val apps = inventoryRepository.getInstalledApps()
-        val userBlockedSet = policyRepository.getBlockedApps()
+        val userBlockedSet = policyRepository.getBlockedApps() + classBlocked
         val resolvedPolicies = PolicyEngine.resolveList(apps, userBlockedSet)
 
         // 2. Create immutable snapshot

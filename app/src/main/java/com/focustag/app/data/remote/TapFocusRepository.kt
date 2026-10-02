@@ -8,6 +8,9 @@ import com.focustag.app.data.supabase.SupabaseModule
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.util.UUID
 
@@ -40,6 +43,24 @@ open class TapFocusRepository {
         } catch (e: Exception) {
             Log.e("TapFocusRepository", "tap_focus failed: ${e.message}", e)
             Result.failure(e)
+        }
+    }
+
+    open suspend fun blockedPackagesForClass(classId: String?): Set<String> {
+        if (classId.isNullOrBlank()) return emptySet()
+        return try {
+            val payload = buildJsonObject { put("p_class_id", classId) }
+            val raw = SupabaseModule.client.postgrest.rpc("get_class_policy", payload).data
+            val root = kotlinx.serialization.json.Json.parseToJsonElement(raw).jsonObject
+            root["packages"]?.jsonArray.orEmpty().mapNotNull { item ->
+                val obj = item.jsonObject
+                val action = obj["action"]?.jsonPrimitive?.content
+                val pkg = obj["package"]?.jsonPrimitive?.content
+                if (action == "BLOCK" && !pkg.isNullOrBlank()) pkg else null
+            }.toSet()
+        } catch (e: Exception) {
+            Log.e("TapFocusRepository", "class policy failed: ${e.message}")
+            emptySet()
         }
     }
 }
