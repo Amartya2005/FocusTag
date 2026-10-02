@@ -183,7 +183,9 @@ fun HomeScreen(
                 }
             }
             }
-            ScatterSlot(present = !nfcLive, modifier = Modifier.fillMaxWidth().weight(1.35f)) {
+            val qrWeight by animateFloatAsState(if (nfcLive) 0.2f else if (qrLive) 1.7f else 1.35f, tween(700), label = "qrWeight")
+            val nfcWeight by animateFloatAsState(if (qrLive) 0.2f else if (nfcLive) 1.5f else 0.85f, tween(700), label = "nfcWeight")
+            ScatterSlot(present = !nfcLive, modifier = Modifier.fillMaxWidth().weight(qrWeight)) {
             Surface(
                 onClick = onNavigateToQr,
                 enabled = !nfcLive,
@@ -225,7 +227,7 @@ fun HomeScreen(
                 }
             }
             }
-            ScatterSlot(present = !qrLive, modifier = Modifier.fillMaxWidth().weight(0.85f), tint = Color(0xFF1B2428)) {
+            ScatterSlot(present = !qrLive, modifier = Modifier.fillMaxWidth().weight(nfcWeight), tint = Color(0xFF1B2428)) {
             Surface(
                 shape = RoundedCornerShape(28.dp),
                 color = if (nfcLive) Color(0xFF4A2C28) else Color(0xFF1B2428),
