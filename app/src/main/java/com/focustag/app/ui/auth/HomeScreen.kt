@@ -41,7 +41,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -117,6 +119,21 @@ fun HomeScreen(
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
         label = "shift"
     )
+    val sweep by noteMotion.animateFloat(
+        initialValue = -1f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing), RepeatMode.Reverse),
+        label = "sweep"
+    )
+    val breathe by noteMotion.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.015f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "breathe"
+    )
+    val qrPress = remember { MutableInteractionSource() }
+    val qrPressed by qrPress.collectIsPressedAsState()
+    val qrScale by animateFloatAsState(if (qrPressed) 0.98f else 1f, label = "qrPress")
 
     FunkyStage {
         Box(Modifier.fillMaxSize().background(wash)) {
@@ -153,53 +170,93 @@ fun HomeScreen(
                         color = Color(0xFFF6F1E8),
                         style = MaterialTheme.typography.labelLarge
                     )
+                    if (isFocusActive) {
+                        Box(
+                            Modifier
+                                .size(width = 18.dp, height = 4.dp)
+                                .graphicsLayer { translationX = sweep * 8f }
+                                .background(Color(0xFFE7B08A), RoundedCornerShape(4.dp))
+                        )
+                    }
                 }
             }
             }
             Surface(
                 onClick = onNavigateToQr,
+                interactionSource = qrPress,
                 shape = RoundedCornerShape(28.dp),
                 color = if (qrLive) Color(0xFF4A2C28) else Color(0xFF16343A),
-                modifier = Modifier.fillMaxWidth().weight(1.35f)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1.35f)
+                    .scale(if (qrLive) breathe else qrScale)
             ) {
-                Column(
-                    Modifier.fillMaxSize().padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text("QR", color = Color(0xFF8FE3DC), style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        when {
-                            qrLive -> "Scan the code to leave"
-                            nfcLive -> "Tag class is on"
-                            else -> "Scan the code to start"
-                        },
-                        color = Color(0xFFF6F1E8),
-                        style = MaterialTheme.typography.headlineSmall
-                    )
+                Box(Modifier.fillMaxSize()) {
+                    if (qrLive) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(0.35f)
+                                .height(3.dp)
+                                .align(Alignment.TopStart)
+                                .graphicsLayer { translationX = (sweep + 1f) * 180f }
+                                .background(Color(0xFFE7B08A))
+                        )
+                    }
+                    Column(
+                        Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        Text("QR", color = Color(0xFF8FE3DC), style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(8.dp))
+                        AnimatedContent(targetState = qrLive to nfcLive, transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(160)) }, label = "qrCopy") {
+                            Text(
+                                when {
+                                    it.first -> "Scan the code to leave"
+                                    it.second -> "Tag class is on"
+                                    else -> "Scan the code to start"
+                                },
+                                color = Color(0xFFF6F1E8),
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                        }
+                    }
                 }
             }
             Surface(
                 shape = RoundedCornerShape(28.dp),
                 color = if (nfcLive) Color(0xFF4A2C28) else Color(0xFF1B2428),
-                modifier = Modifier.fillMaxWidth().weight(0.85f)
+                modifier = Modifier.fillMaxWidth().weight(0.85f).scale(if (nfcLive) breathe else 1f)
             ) {
-                Column(
-                    Modifier.fillMaxSize().padding(24.dp),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text("NFC", color = Color(0xFFE7B08A), style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        when {
-                            nfcLive -> "Tap the tag to leave"
-                            qrLive -> "Code class is on"
-                            else -> "Hold the tag to start"
-                        },
-                        color = Color(0xFFF6F1E8),
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                Box(Modifier.fillMaxSize()) {
+                    if (nfcLive) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(0.35f)
+                                .height(3.dp)
+                                .align(Alignment.TopStart)
+                                .graphicsLayer { translationX = (1f - sweep) * 180f }
+                                .background(Color(0xFF8FE3DC))
+                        )
+                    }
+                    Column(
+                        Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("NFC", color = Color(0xFFE7B08A), style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(8.dp))
+                        AnimatedContent(targetState = nfcLive to qrLive, transitionSpec = { fadeIn(tween(280)) togetherWith fadeOut(tween(160)) }, label = "nfcCopy") {
+                            Text(
+                                when {
+                                    it.first -> "Tap the tag to leave"
+                                    it.second -> "Code class is on"
+                                    else -> "Hold the tag to start"
+                                },
+                                color = Color(0xFFF6F1E8),
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                        }
+                    }
                 }
             }
             lastTapMessage?.let { ErrorBanner(it) }
