@@ -43,7 +43,9 @@ import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.draw.scale
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -181,15 +183,14 @@ fun HomeScreen(
                 }
             }
             }
+            ScatterSlot(present = !nfcLive, modifier = Modifier.fillMaxWidth().weight(1.35f)) {
             Surface(
                 onClick = onNavigateToQr,
+                enabled = !nfcLive,
                 interactionSource = qrPress,
                 shape = RoundedCornerShape(28.dp),
                 color = if (qrLive) Color(0xFF4A2C28) else Color(0xFF16343A),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1.35f)
-                    .scale(if (qrLive) breathe else qrScale)
+                modifier = Modifier.fillMaxSize().scale(if (qrLive) breathe else qrScale)
             ) {
                 Box(Modifier.fillMaxSize()) {
                     if (qrLive) {
@@ -223,10 +224,14 @@ fun HomeScreen(
                     }
                 }
             }
+                }
+            }
+            }
+            ScatterSlot(present = !qrLive, modifier = Modifier.fillMaxWidth().weight(0.85f), tint = Color(0xFF1B2428)) {
             Surface(
                 shape = RoundedCornerShape(28.dp),
                 color = if (nfcLive) Color(0xFF4A2C28) else Color(0xFF1B2428),
-                modifier = Modifier.fillMaxWidth().weight(0.85f).scale(if (nfcLive) breathe else 1f)
+                modifier = Modifier.fillMaxSize().scale(if (nfcLive) breathe else 1f)
             ) {
                 Box(Modifier.fillMaxSize()) {
                     if (nfcLive) {
@@ -259,6 +264,7 @@ fun HomeScreen(
                     }
                 }
             }
+            }
             lastTapMessage?.let { ErrorBanner(it) }
             if (isTransitioning) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -282,6 +288,52 @@ fun HomeScreen(
                 enabled = !isFocusActive
             )
         }
+        }
+    }
+}
+
+@Composable
+private fun ScatterSlot(
+    present: Boolean,
+    modifier: Modifier = Modifier,
+    tint: Color = Color(0xFF16343A),
+    content: @Composable () -> Unit
+) {
+    val progress by animateFloatAsState(
+        targetValue = if (present) 0f else 1f,
+        animationSpec = tween(720, easing = FastOutSlowInEasing),
+        label = "scatter"
+    )
+    Box(modifier) {
+        if (progress < 0.92f) {
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - progress }) { content() }
+        }
+        if (progress > 0.04f) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val cols = 4
+                val rows = 3
+                val pieceW = maxWidth / cols
+                val pieceH = maxHeight / rows
+                for (row in 0 until rows) {
+                    for (col in 0 until cols) {
+                        val dx = (col - 1.5f) * 78f * progress
+                        val dy = (row - 1f) * 64f * progress
+                        val spin = if ((col + row) % 2 == 0) 26f else -26f
+                        Box(
+                            Modifier
+                                .offset(x = pieceW * col, y = pieceH * row)
+                                .size(pieceW - 6.dp, pieceH - 6.dp)
+                                .graphicsLayer {
+                                    translationX = dx
+                                    translationY = dy
+                                    rotationZ = spin * progress
+                                    alpha = (1f - progress).coerceAtLeast(0f)
+                                }
+                                .background(tint, RoundedCornerShape(8.dp))
+                        )
+                    }
+                }
+            }
         }
     }
 }
