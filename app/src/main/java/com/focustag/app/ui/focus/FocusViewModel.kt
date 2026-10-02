@@ -223,7 +223,25 @@ open class FocusViewModel(
         val installUuid = InstallIdStore.getOrCreate(ctx)
         val acsHealth = if (_accessibilityCapability.value == AccessibilityCapability.ACCESSIBILITY_READY) AcsHealth.HEALTHY else AcsHealth.FAILED
         val result = tapFocusRepository.tapFocus(tagUid = normalizedTagId, installUuid = installUuid, acsHealth = acsHealth, entrySource = source, idempotencyKey = UUID.randomUUID())
-        val response = result.getOrNull()
+        var response = result.getOrNull()
+        val phoneIdle = _focusState.value.focusState != FocusState.FOCUS_ACTIVE
+        if (response?.error == "entry_mismatch" && phoneIdle) {
+            tapFocusRepository.tapFocus(
+                tagUid = normalizedTagId,
+                installUuid = installUuid,
+                acsHealth = acsHealth,
+                entrySource = source,
+                idempotencyKey = UUID.randomUUID(),
+                force = true
+            )
+            response = tapFocusRepository.tapFocus(
+                tagUid = normalizedTagId,
+                installUuid = installUuid,
+                acsHealth = acsHealth,
+                entrySource = source,
+                idempotencyKey = UUID.randomUUID()
+            ).getOrNull()
+        }
         if (response == null || !response.accepted) {
             _lastTapMessage.update { humanizeTapError(response?.error ?: result.exceptionOrNull()?.message) }
             return
