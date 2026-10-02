@@ -5,7 +5,7 @@ import android.content.Intent
 import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
 import android.nfc.Tag
-import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import com.focustag.app.domain.NfcProtocol
 import com.focustag.app.domain.TagLinkParser
@@ -31,16 +31,24 @@ class NfcController(
     fun isNfcAvailable(): Boolean = nfcAdapter != null
 
     fun enableReaderMode(onTagDetected: (String) -> Unit) {
-        nfcAdapter?.enableReaderMode(
+        val adapter = nfcAdapter ?: return
+        if (!adapter.isEnabled) return
+        val extras = Bundle().apply {
+            putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 250)
+        }
+        adapter.enableReaderMode(
             activity,
             { tag ->
-                val tagId = bytesToHex(tag.id)
+                val tagId = NfcProtocol.normalize(bytesToHex(tag.id)) ?: return@enableReaderMode
                 if (dedupe(tagId)) return@enableReaderMode
-                Log.d(TAG, "NFC tag detected: $tagId")
-                onTagDetected(tagId)
+                Log.d(TAG, "NFC tag detected while app is open: $tagId")
+                activity.runOnUiThread { onTagDetected(tagId) }
             },
-            NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
-            null
+            NfcAdapter.FLAG_READER_NFC_A or
+                NfcAdapter.FLAG_READER_NFC_B or
+                NfcAdapter.FLAG_READER_NFC_F or
+                NfcAdapter.FLAG_READER_NFC_V,
+            extras
         )
     }
 

@@ -271,6 +271,11 @@ class MainActivity : ComponentActivity() {
         nfcController.enableReaderMode { tagId -> deliverTag(tagId) }
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) nfcController.enableReaderMode { tagId -> deliverTag(tagId) }
+    }
+
     override fun onPause() {
         super.onPause()
         nfcController.disableReaderMode()
