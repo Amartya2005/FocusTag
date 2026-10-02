@@ -224,8 +224,6 @@ fun HomeScreen(
                     }
                 }
             }
-                }
-            }
             }
             ScatterSlot(present = !qrLive, modifier = Modifier.fillMaxWidth().weight(0.85f), tint = Color(0xFF1B2428)) {
             Surface(
