@@ -76,6 +76,7 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToApps: () -> Unit,
     onNavigateToHistory: () -> Unit,
+    onNavigateToAnalytics: () -> Unit,
     onNavigateToQr: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -283,7 +284,8 @@ fun HomeScreen(
             QuietLinkRow(
                 items = listOf(
                     "Today" to onBack,
-                    "History" to onNavigateToHistory
+                    "History" to onNavigateToHistory,
+                    "Analytics" to onNavigateToAnalytics
                 ),
                 enabled = !isFocusActive
             )
