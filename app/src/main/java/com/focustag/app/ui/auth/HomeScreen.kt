@@ -155,6 +155,7 @@ fun HomeScreen(
                     )
                 }
             }
+            }
             Surface(
                 onClick = onNavigateToQr,
                 shape = RoundedCornerShape(28.dp),
