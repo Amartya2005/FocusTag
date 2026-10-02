@@ -277,8 +277,7 @@ fun HomeScreen(
             QuietLinkRow(
                 items = listOf(
                     "Today" to onBack,
-                    "History" to onNavigateToHistory,
-                    "Apps" to onNavigateToApps
+                    "History" to onNavigateToHistory
                 ),
                 enabled = !isFocusActive
             )
