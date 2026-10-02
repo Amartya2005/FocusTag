@@ -144,7 +144,11 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     DoorHalo(active = nfcLive)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(horizontal = 28.dp)
+                    ) {
                         Text("NFC", color = Color(0xFFE7B08A), style = MaterialTheme.typography.labelLarge)
                         Text(
                             when {
@@ -158,12 +162,13 @@ fun HomeScreen(
                         )
                         Text(
                             when (nfcCapability) {
-                                NfcCapability.NFC_READY -> "Tag door ready"
+                                NfcCapability.NFC_READY -> "Works with the app open or closed"
                                 NfcCapability.NFC_OFF -> "Turn NFC on"
                                 NfcCapability.NFC_UNAVAILABLE -> "This phone has no NFC"
                             },
                             color = Color(0xFFD5D0C6),
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -236,13 +241,13 @@ private fun DoorHalo(active: Boolean) {
     val ring = if (active) Color(0xFFE7B08A) else Color(0xFF8FE3DC)
     Box(
         modifier = Modifier
-            .size(260.dp)
+            .size(220.dp)
             .scale(swell)
             .border(1.5.dp, ring.copy(alpha = 0.35f), CircleShape)
     )
     Box(
         modifier = Modifier
-            .size(188.dp)
+            .size(148.dp)
             .scale(2f - swell)
             .border(2.dp, ring.copy(alpha = 0.7f), CircleShape)
     )
