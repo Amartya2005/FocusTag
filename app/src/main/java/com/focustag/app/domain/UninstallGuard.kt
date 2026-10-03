@@ -24,7 +24,14 @@ object UninstallGuard {
     val settingsPackages: Set<String> = setOf(
         "com.android.settings",
         "com.nothing.settings",
-        "com.android.settings.intelligence"
+        "com.android.settings.intelligence",
+        "com.samsung.android.settings",
+        "com.miui.securitycenter",
+        "com.miui.securityadd",
+        "com.coloros.safecenter",
+        "com.oplus.safecenter",
+        "com.vivo.permissionmanager",
+        "com.iqoo.secure"
     )
 
     /** Nothing 3a ships Files by Google. Block the whole app during class. */
@@ -83,7 +90,10 @@ object UninstallGuard {
         "remove this app",
         "do you want to uninstall",
         "uninstall app",
-        "app info"
+        "force stop",
+        "battery optimization",
+        "autostart",
+        "accessibility"
     )
 
     fun isInstallerPackage(packageName: String): Boolean =
@@ -117,11 +127,13 @@ object UninstallGuard {
         if (isSettingsPackage(packageName)) {
             if (uninstallClassHints.any { cls.contains(it, ignoreCase = true) }) return true
             if (accessibilityClassHints.any { cls.contains(it, ignoreCase = true) }) return true
+            if (text.contains("accessibility", ignoreCase = true) && text.contains("FocusTag", ignoreCase = true)) return true
             if (mentionsSelf && (
                     looksLikeUninstall ||
                         text.contains("disable", ignoreCase = true) ||
                         text.contains("force stop", ignoreCase = true) ||
-                        text.contains("accessibility", ignoreCase = true)
+                        text.contains("accessibility", ignoreCase = true) ||
+                        text.contains("battery", ignoreCase = true)
                     )
             ) {
                 return true

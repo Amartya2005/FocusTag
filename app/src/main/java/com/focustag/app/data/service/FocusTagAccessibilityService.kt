@@ -229,6 +229,9 @@ class FocusTagAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         hideBanner()
         if (instance === this) instance = null
+        if (SessionLockStore.isLocked(applicationContext)) {
+            FocusWatchdogService.setArmed(applicationContext, true)
+        }
         super.onDestroy()
     }
 }
