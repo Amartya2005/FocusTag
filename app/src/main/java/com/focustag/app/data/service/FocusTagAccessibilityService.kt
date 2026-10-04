@@ -137,7 +137,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
             if (reason == "POLICY") {
                 performGlobalAction(GLOBAL_ACTION_HOME)
                 showCaughtBanner(pkgName)
-                openFocusTag()
+                openFocusTag(pkgName)
             } else {
                 performGlobalAction(GLOBAL_ACTION_BACK)
                 performGlobalAction(GLOBAL_ACTION_HOME)
@@ -174,14 +174,16 @@ class FocusTagAccessibilityService : AccessibilityService() {
                 }
                 setOnClickListener {
                     hideBanner()
-                    openFocusTag()
+                    openFocusTag(pkgName)
                 }
             }
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
             )
             runCatching { wm.addView(view, params) }
@@ -192,15 +194,16 @@ class FocusTagAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun openFocusTag() {
-        val intent = android.content.Intent(this, com.focustag.app.MainActivity::class.java)
-            .addFlags(
-                android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
-                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
-            )
-        val opened = runCatching { startActivity(intent) }.isSuccess
-        if (!opened) performGlobalAction(GLOBAL_ACTION_HOME)
+    private fun openFocusTag(pkgName: String) {
+        val line = LINES.random().format(
+            runCatching {
+                packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkgName, 0)).toString()
+            }.getOrDefault("That app")
+        )
+        val intent = android.content.Intent(this, com.focustag.app.CaughtBannerActivity::class.java)
+            .putExtra("line", "Back to class\n$line")
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        runCatching { startActivity(intent) }
         val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         if (android.os.Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(

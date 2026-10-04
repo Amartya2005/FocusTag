@@ -36,6 +36,14 @@
         android:theme="@style/Theme.FocusTag"
         tools:ignore="DataExtractionRules">
         <activity
+            android:name=".CaughtBannerActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.FocusTag" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
