@@ -34,6 +34,8 @@ object UninstallGuard {
         "com.miui.securityadd",
         "com.coloros.safecenter",
         "com.oplus.safecenter",
+        "com.oplus.appdetail",
+        "com.coloros.appdetail",
         "com.vivo.permissionmanager",
         "com.iqoo.secure"
     )
@@ -128,6 +130,7 @@ object UninstallGuard {
         val looksLikeUninstall = uninstallPhrases.any { text.contains(it, ignoreCase = true) } ||
             cls.contains("Uninstall", ignoreCase = true)
 
+        if (packageName.contains("appdetail", ignoreCase = true)) return true
         if (isFileManagerPackage(packageName)) return true
         if (isInstallerPackage(packageName)) return true
 
