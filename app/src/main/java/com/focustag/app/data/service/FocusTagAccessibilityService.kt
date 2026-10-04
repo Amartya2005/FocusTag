@@ -135,6 +135,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
             }
             Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className")
             if (reason == "POLICY") showCaughtBanner(pkgName)
+            if (reason != "POLICY") performGlobalAction(GLOBAL_ACTION_BACK)
             performGlobalAction(GLOBAL_ACTION_HOME)
             if (pkgName != lastAnalyticsPackage || (currentTime - lastAnalyticsTime) >= ANALYTICS_DEBOUNCE_MS) {
                 SessionHistoryRepository(applicationContext, state.ownerUserId)
