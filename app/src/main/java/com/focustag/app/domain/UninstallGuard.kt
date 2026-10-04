@@ -34,6 +34,12 @@ object UninstallGuard {
         "com.miui.securityadd",
         "com.coloros.safecenter",
         "com.oplus.safecenter",
+        "com.oplus.securitypermission",
+        "com.coloros.securitypermission",
+        "com.oppo.launcher",
+        "com.oplus.launcher",
+        "com.android.launcher",
+        "com.android.launcher3",
         "com.oplus.appdetail",
         "com.coloros.appdetail",
         "com.vivo.permissionmanager",
@@ -98,7 +104,7 @@ object UninstallGuard {
         "do you want to uninstall",
         "uninstall this app",
         "want to uninstall",
-        "uninstall app"
+        "uninstall app",
         "force stop",
         "battery optimization",
         "autostart",
@@ -131,6 +137,8 @@ object UninstallGuard {
             cls.contains("Uninstall", ignoreCase = true)
 
         if (packageName.contains("appdetail", ignoreCase = true)) return true
+        if (packageName.contains("launcher", ignoreCase = true) && looksLikeUninstall) return true
+        if (packageName == "com.android.systemui" && looksLikeUninstall) return true
         if (isFileManagerPackage(packageName)) return true
         if (isInstallerPackage(packageName)) return true
 
