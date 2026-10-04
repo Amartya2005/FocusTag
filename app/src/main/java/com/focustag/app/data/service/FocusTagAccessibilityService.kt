@@ -135,6 +135,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
             }
             Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className")
             if (reason == "POLICY") {
+                performGlobalAction(GLOBAL_ACTION_HOME)
                 showCaughtBanner(pkgName)
                 openFocusTag()
             } else {
@@ -163,32 +164,31 @@ class FocusTagAccessibilityService : AccessibilityService() {
             val wm = getSystemService(WINDOW_SERVICE) as WindowManager
             bannerView?.let { runCatching { wm.removeView(it) } }
             val view = TextView(this).apply {
-                text = "Back to class\n$line"
+                text = "Back to class\n$line\n\nTap to open FocusTag"
                 setTextColor(Color.parseColor("#F6F1E8"))
-                textSize = 18f
+                textSize = 22f
                 gravity = Gravity.CENTER
-                setPadding(56, 44, 56, 44)
+                setPadding(72, 72, 72, 72)
                 background = GradientDrawable().apply {
-                    cornerRadius = 64f
-                    setColor(Color.parseColor("#1B2428"))
+                    setColor(Color.parseColor("#E61B2428"))
                 }
-                setOnClickListener { hideBanner() }
+                setOnClickListener {
+                    hideBanner()
+                    openFocusTag()
+                }
             }
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
-            ).apply {
-                gravity = Gravity.BOTTOM
-                y = 48
-            }
+            )
             runCatching { wm.addView(view, params) }
                 .onSuccess { bannerView = view }
                 .onFailure { Log.e(TAG, "Banner failed: ${it.message}") }
             mainHandler.removeCallbacks(hideBannerRunnable)
-            mainHandler.postDelayed(hideBannerRunnable, 2600)
+            mainHandler.postDelayed(hideBannerRunnable, 6000)
         }
     }
 
@@ -199,8 +199,28 @@ class FocusTagAccessibilityService : AccessibilityService() {
                     android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
             )
-        runCatching { startActivity(intent) }
-            .onFailure { performGlobalAction(GLOBAL_ACTION_HOME) }
+        val opened = runCatching { startActivity(intent) }.isSuccess
+        if (!opened) performGlobalAction(GLOBAL_ACTION_HOME)
+        val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            manager.createNotificationChannel(
+                android.app.NotificationChannel("focus_return", "Back to class", android.app.NotificationManager.IMPORTANCE_HIGH)
+            )
+        }
+        val pending = android.app.PendingIntent.getActivity(
+            this,
+            7,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = android.app.Notification.Builder(this, "focus_return")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setContentTitle("Back to class")
+            .setContentText("Tap to open FocusTag")
+            .setContentIntent(pending)
+            .setAutoCancel(true)
+            .build()
+        runCatching { manager.notify(7, notification) }
     }
 
     private val hideBannerRunnable = Runnable { hideBanner() }
