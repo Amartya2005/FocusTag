@@ -134,9 +134,13 @@ class FocusTagAccessibilityService : AccessibilityService() {
                 else -> "POLICY"
             }
             Log.i(TAG, "INTERCEPTED ($reason): $pkgName / $className")
-            if (reason == "POLICY") showCaughtBanner(pkgName)
-            if (reason != "POLICY") performGlobalAction(GLOBAL_ACTION_BACK)
-            performGlobalAction(GLOBAL_ACTION_HOME)
+            if (reason == "POLICY") {
+                showCaughtBanner(pkgName)
+                openFocusTag()
+            } else {
+                performGlobalAction(GLOBAL_ACTION_BACK)
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            }
             if (pkgName != lastAnalyticsPackage || (currentTime - lastAnalyticsTime) >= ANALYTICS_DEBOUNCE_MS) {
                 SessionHistoryRepository(applicationContext, state.ownerUserId)
                     .emitInterceptionEvent(state.sessionId, pkgName)
@@ -159,7 +163,7 @@ class FocusTagAccessibilityService : AccessibilityService() {
             val wm = getSystemService(WINDOW_SERVICE) as WindowManager
             bannerView?.let { runCatching { wm.removeView(it) } }
             val view = TextView(this).apply {
-                text = "NOPE\n$line"
+                text = "Back to class\n$line"
                 setTextColor(Color.parseColor("#F6F1E8"))
                 textSize = 18f
                 gravity = Gravity.CENTER
@@ -186,6 +190,17 @@ class FocusTagAccessibilityService : AccessibilityService() {
             mainHandler.removeCallbacks(hideBannerRunnable)
             mainHandler.postDelayed(hideBannerRunnable, 2600)
         }
+    }
+
+    private fun openFocusTag() {
+        val intent = android.content.Intent(this, com.focustag.app.MainActivity::class.java)
+            .addFlags(
+                android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+            )
+        runCatching { startActivity(intent) }
+            .onFailure { performGlobalAction(GLOBAL_ACTION_HOME) }
     }
 
     private val hideBannerRunnable = Runnable { hideBanner() }
