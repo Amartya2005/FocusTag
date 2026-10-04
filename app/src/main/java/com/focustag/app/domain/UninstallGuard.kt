@@ -17,6 +17,10 @@ object UninstallGuard {
         "com.android.packageinstaller",
         "com.google.android.packageinstaller",
         "com.samsung.android.packageinstaller",
+        "com.miui.packageinstaller",
+        "com.coloros.packageinstaller",
+        "com.oplus.packageinstaller",
+        "com.vivo.packageinstaller",
         "com.google.android.permissioncontroller",
         "com.android.permissioncontroller"
     )
@@ -63,6 +67,7 @@ object UninstallGuard {
         "UninstallAppProgress",
         "UninstallUninstalling",
         "InstalledAppDetails",
+        "ManageApplications",
         "AppInfoDashboard",
         "AppInfoSettings",
         "ApplicationDetails",
@@ -89,7 +94,9 @@ object UninstallGuard {
         "delete this app",
         "remove this app",
         "do you want to uninstall",
-        "uninstall app",
+        "uninstall this app",
+        "want to uninstall",
+        "uninstall app"
         "force stop",
         "battery optimization",
         "autostart",
@@ -97,10 +104,10 @@ object UninstallGuard {
     )
 
     fun isInstallerPackage(packageName: String): Boolean =
-        installerPackages.contains(packageName)
+        installerPackages.contains(packageName) || packageName.endsWith(".packageinstaller")
 
     fun isSettingsPackage(packageName: String): Boolean =
-        settingsPackages.contains(packageName)
+        settingsPackages.contains(packageName) || packageName.endsWith(".settings")
 
     fun isFileManagerPackage(packageName: String): Boolean =
         fileManagerPackages.contains(packageName)
