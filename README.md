@@ -2,7 +2,7 @@
 
 Classroom focus for school-owned and pilot Android phones.
 
-A student presents **NFC** or **QR** at the door. Both carry the same registered `nfc_tags.uid`. The server `tap_focus` RPC owns OPEN / CLOSED. The Accessibility Service then enforces the class app policy until the same tag is presented again.
+A student presents **NFC** or **QR** at the door. Both carry the same registered `nfc_tags.uid`, so NFC and QR resolve to the same server-side focus transition. The server `tap_focus` RPC owns OPEN / CLOSED. The Accessibility Service then enforces the class app policy until the same tag is presented again.
 
 Pilot fork of [0xyusufz/FocusTag](https://github.com/0xyusufz/FocusTag). Real deltas: [docs/DIFFS_VS_UPSTREAM.md](docs/DIFFS_VS_UPSTREAM.md) — this is not a silent clone.
 
