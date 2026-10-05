@@ -50,6 +50,10 @@ There is no student on / off switch. Apps list is read-only. Session start is ta
 - Multi-institution admin console
 - Greying out the system Accessibility toggle (Google does not expose that API)
 
+## Device ownership boundary
+
+Personal devices cannot provide the same enforcement guarantees as school-owned Device Owner devices. FocusTag therefore fail-closes when required accessibility or notification capabilities are unavailable, while stronger OS controls remain limited to managed devices.
+
 ## Devices
 
 | Phone | What the OS allows |
