@@ -73,6 +73,14 @@ Details: [docs/SCHOOL_OWNED.md](docs/SCHOOL_OWNED.md).
 
 Kotlin, Jetpack Compose, Material 3, NFC reader mode + system NFC launch, CameraX + ML Kit QR, AccessibilityService, NotificationListenerService, DevicePolicyManager (when owner), Supabase Auth + PostgREST.
 
+## Pilot verification checklist
+
+- Sign in on the pilot handset.
+- Verify Accessibility and notification gates report healthy.
+- Tap the registered NFC tag and confirm `FOCUS_ACTIVE`.
+- Scan the equivalent QR and confirm it follows the same focus path.
+- Present the same tag or QR again and confirm the session ends.
+
 ## Build
 
 ```bash
