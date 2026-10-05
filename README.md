@@ -6,6 +6,10 @@ A student presents **NFC** or **QR** at the door. Both carry the same registered
 
 Pilot fork of [0xyusufz/FocusTag](https://github.com/0xyusufz/FocusTag). Real deltas: [docs/DIFFS_VS_UPSTREAM.md](docs/DIFFS_VS_UPSTREAM.md) — this is not a silent clone.
 
+## Focus state flow
+
+`NFC/QR → tap_focus RPC → FOCUS_ACTIVE → app policy enforcement → same tag/QR → ENDED`. The client treats the server response as authoritative for session state.
+
 ## How class starts
 
 1. Student is signed in and Accessibility is on (fail-closed otherwise).
