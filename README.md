@@ -42,6 +42,10 @@ There is no student on / off switch. Apps list is read-only. Session start is ta
 - School-owned Device Owner policy on **any** compatible Android (not 3a-only)
 - Client hardening: no backup of session prefs, no cleartext, `FLAG_SECURE`, simulated tag blocked in release
 
+## Production readiness
+
+The current repository is pilot-oriented. Production deployment still requires device-management rollout, production signing, backend operational controls, and completion of the parked MDM / Android Enterprise work.
+
 ## Parked
 
 - Full MDM / Android Enterprise console and zero-touch at district scale
