@@ -236,7 +236,7 @@ class MainActivity : ComponentActivity() {
                                     "profile" -> ProfileScreen(viewModel = profileViewModel, isFocusActive = isFocusActive, onBack = { currentScreen = "home" })
                                     "apps" -> appSelectionViewModel?.let { AppSelectionScreen(viewModel = it, isFocusActive = isFocusActive, onBack = { currentScreen = "home" }) }
                                     "history" -> historyViewModel?.let { HistoryScreen(viewModel = it, onBack = { currentScreen = "home" }) }
-                                    "analytics" -> historyViewModel?.let { AnalyticsScreen(viewModel = it, onBack = { currentScreen = "home" }) }
+                                    "analytics" -> dashboardViewModel?.let { AnalyticsScreen(viewModel = it, onBack = { currentScreen = "home" }) }
                                     "qr_scan" -> focusViewModel?.let { focusVM ->
                                         QrScanScreen(
                                             isFocusActive = isFocusActive,
