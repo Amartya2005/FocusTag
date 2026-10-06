@@ -38,9 +38,9 @@ BEGIN
   END IF;
 
   -- 3. Escape ILIKE wildcard characters so the prefix is treated as a LITERAL string.
-  v_sanitized := replace(v_sanitized, '\\', '\\\\');
-  v_sanitized := replace(v_sanitized, '%', '\\%');
-  v_sanitized := replace(v_sanitized, '_', '\\_');
+  v_sanitized := replace(v_sanitized, '\', '\\');
+  v_sanitized := replace(v_sanitized, '%', '\%');
+  v_sanitized := replace(v_sanitized, '_', '\_');
 
   -- 4. Return only eligible unassigned students.
   --    Table aliases 'p' and 'u' are explicitly used for all column references
@@ -51,7 +51,7 @@ BEGIN
   JOIN     auth.users u ON p.id = u.id
   WHERE    p.institution_id IS NULL
     AND    p.role = 'student'
-    AND    u.email ILIKE v_sanitized || '%' ESCAPE '\\'
+    AND    u.email ILIKE v_sanitized || '%' ESCAPE '\'
   LIMIT 20;
 END;
 $$;
