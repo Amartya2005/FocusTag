@@ -40,30 +40,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.focustag.app.data.model.EntrySource
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.focustag.app.data.model.AccessibilityCapability
-import com.focustag.app.data.model.EnforcementStatus
 import com.focustag.app.data.model.FocusState
 import com.focustag.app.data.model.NfcCapability
 import com.focustag.app.ui.acs.AcsRequiredGate
 import com.focustag.app.ui.components.ClassroomTopBar
 import com.focustag.app.ui.components.ErrorBanner
 import com.focustag.app.ui.components.FunkyStage
-import com.focustag.app.ui.components.InitialsAvatar
 import com.focustag.app.ui.components.PulseDot
+import com.focustag.app.ui.components.QuietLink
 import com.focustag.app.ui.components.QuietLinkRow
+import com.focustag.app.ui.components.RoleTopTrailing
 import com.focustag.app.ui.focus.FocusViewModel
 import com.focustag.app.util.NotificationAccessChecker
 import io.github.jan.supabase.auth.status.SessionStatus
@@ -72,16 +68,19 @@ import io.github.jan.supabase.auth.status.SessionStatus
 fun HomeScreen(
     authViewModel: AuthViewModel,
     focusViewModel: FocusViewModel,
+    role: String = "student",
     onNavigateToProfile: () -> Unit,
     onNavigateToApps: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToAnalytics: () -> Unit,
     onNavigateToQr: () -> Unit,
-    onBack: () -> Unit
+    onNavigateToDashboard: () -> Unit = {},
+    onBack: () -> Unit = onNavigateToDashboard,
+    onNavigateToTeacher: () -> Unit = {},
+    onNavigateToAdmin: () -> Unit = {}
 ) {
     val sessionStatus by authViewModel.sessionStatus.collectAsState()
     val focusSessionState by focusViewModel.focusState.collectAsState()
-    val enforcementStatus by focusViewModel.enforcementStatus.collectAsState()
     val isTransitioning by focusViewModel.isTransitioning.collectAsState()
     val accessibilityCapability by focusViewModel.accessibilityCapability.collectAsState()
     val nfcCapability by focusViewModel.nfcCapability.collectAsState()
@@ -136,6 +135,7 @@ fun HomeScreen(
     val qrPress = remember { MutableInteractionSource() }
     val qrPressed by qrPress.collectIsPressedAsState()
     val qrScale by animateFloatAsState(if (qrPressed) 0.98f else 1f, label = "qrPress")
+    val goDashboard = { if (onNavigateToDashboard !== onBack) onNavigateToDashboard() else onBack() }
 
     FunkyStage {
         Box(Modifier.fillMaxSize().background(wash)) {
@@ -147,7 +147,13 @@ fun HomeScreen(
         ) {
             ClassroomTopBar(
                 title = if (isFocusActive) "In class" else "At the door",
-                trailing = { InitialsAvatar(userEmail, onClick = if (isFocusActive) null else onNavigateToProfile) }
+                trailing = {
+                    RoleTopTrailing(
+                        role = role,
+                        avatarLabel = userEmail,
+                        onAvatarClick = if (isFocusActive) null else onNavigateToProfile
+                    )
+                }
             )
             val nfcLive = isFocusActive && source == EntrySource.NFC
             val qrLive = isFocusActive && source == EntrySource.QR
@@ -216,8 +222,8 @@ fun HomeScreen(
                             Text(
                                 when {
                                     it.first -> "Scan the code to leave"
-                                    it.second -> "Tag class is on"
-                                    else -> "Scan the code to start"
+                                    it.second -> "Tag class is on — QR waits"
+                                    else -> "Scan classroom QR to start focus"
                                 },
                                 color = Color(0xFFF6F1E8),
                                 style = MaterialTheme.typography.headlineSmall
@@ -254,8 +260,8 @@ fun HomeScreen(
                             Text(
                                 when {
                                     it.first -> "Tap the tag to leave"
-                                    it.second -> "Code class is on"
-                                    else -> "Hold the tag to start"
+                                    it.second -> "Code class is on — NFC waits"
+                                    else -> "Hold the NFC tag to start focus"
                                 },
                                 color = Color(0xFFF6F1E8),
                                 style = MaterialTheme.typography.titleLarge
@@ -281,12 +287,14 @@ fun HomeScreen(
                 ) { Text("Turn on NFC") }
             }
             QuietLinkRow(
-                items = listOf(
-                    "Today" to onBack,
-                    "History" to onNavigateToHistory,
-                    "Analytics" to onNavigateToAnalytics
-                ),
-                enabled = !isFocusActive
+                enabled = !isFocusActive,
+                QuietLink("Today", goDashboard),
+                QuietLink("History", onNavigateToHistory),
+                when (role) {
+                    "admin" -> QuietLink("Admin", onNavigateToAdmin)
+                    "teacher" -> QuietLink("Roster", onNavigateToTeacher)
+                    else -> QuietLink("Analytics", onNavigateToAnalytics)
+                }
             )
         }
         }
@@ -306,7 +314,7 @@ private fun ScatterSlot(
         label = "scatter"
     )
     Box(modifier) {
-        if (progress < 0.92f) {
+        if (!(progress >= 0.92f)) {
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - progress }) { content() }
         }
         if (progress > 0.04f) {
@@ -337,42 +345,4 @@ private fun ScatterSlot(
             }
         }
     }
-}
-
-@Composable
-private fun DoorHalo(active: Boolean) {
-    val motion = rememberInfiniteTransition(label = "halo")
-    val swell by motion.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(tween(if (active) 1400 else 2200, easing = LinearEasing), RepeatMode.Reverse),
-        label = "swell"
-    )
-    val ring = if (active) Color(0xFFE7B08A) else Color(0xFF8FE3DC)
-    Box(
-        modifier = Modifier
-            .size(220.dp)
-            .scale(swell)
-            .border(1.5.dp, ring.copy(alpha = 0.35f), CircleShape)
-    )
-    Box(
-        modifier = Modifier
-            .size(148.dp)
-            .scale(2f - swell)
-            .border(2.dp, ring.copy(alpha = 0.7f), CircleShape)
-    )
-    Box(
-        modifier = Modifier
-            .size(18.dp)
-            .background(ring.copy(alpha = 0.9f), CircleShape)
-    )
-}
-
-private fun enforcementLabel(status: EnforcementStatus): String = when (status) {
-    EnforcementStatus.ENFORCEMENT_ACTIVE -> "locked"
-    EnforcementStatus.ENFORCEMENT_SIMULATED -> "practice"
-    EnforcementStatus.ENFORCEMENT_DEGRADED -> "hold"
-    EnforcementStatus.ENFORCEMENT_FAILED -> "failed"
-    EnforcementStatus.IDLE -> "idle"
-    else -> status.name.lowercase().replace('_', ' ')
 }
