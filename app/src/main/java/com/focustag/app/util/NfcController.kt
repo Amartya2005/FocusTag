@@ -6,6 +6,7 @@ import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.Bundle
+import android.os.Build
 import android.util.Log
 import com.focustag.app.domain.NfcProtocol
 import com.focustag.app.domain.TagLinkParser
