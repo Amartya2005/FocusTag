@@ -27,6 +27,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.focustag.app.ui.components.ClassroomTopBar
+import com.focustag.app.ui.components.RoleBadge
 import com.focustag.app.data.repository.AdminClass
 import com.focustag.app.data.repository.AdminEnrollment
 import com.focustag.app.data.repository.AdminLocation
@@ -63,11 +65,22 @@ fun AdminScreen(institutionId: String, onBack: () -> Unit) {
 
     LaunchedEffect(institutionId) { refresh() }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Admin · ${institutionId.ifBlank { "no institution" }}", style = MaterialTheme.typography.titleMedium)
-            OutlinedButton(onClick = onBack) { Text("Back") }
-        }
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        ClassroomTopBar(
+            title = "Institution admin",
+            trailing = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RoleBadge("admin")
+                    OutlinedButton(onClick = onBack) { Text("Back") }
+                }
+            }
+        )
+        Text(
+            institutionId.ifBlank { "no institution" },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+        )
         ScrollableTabRow(selectedTabIndex = selectedTab) {
             adminTabs.forEachIndexed { index, title -> Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) }) }
         }

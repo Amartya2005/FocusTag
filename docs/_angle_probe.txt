@@ -1,0 +1,1 @@
+// angle-bracket probe: List<String> should round-trip

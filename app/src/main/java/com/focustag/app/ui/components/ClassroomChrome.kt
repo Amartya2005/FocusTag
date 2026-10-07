@@ -168,8 +168,10 @@ fun PulseDot(active: Boolean) {
     }
 }
 
+data class QuietLink(val label: String, val onClick: () -> Unit)
+
 @Composable
-fun QuietLinkRow(items: List<Pair<String, () -> Unit>>, enabled: Boolean) {
+fun QuietLinkRow(enabled: Boolean, vararg items: QuietLink) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -180,9 +182,9 @@ fun QuietLinkRow(items: List<Pair<String, () -> Unit>>, enabled: Boolean) {
             modifier = Modifier.fillMaxWidth().padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            items.forEach { (label, onClick) ->
+            for (item in items) {
                 Surface(
-                    onClick = onClick,
+                    onClick = item.onClick,
                     enabled = enabled,
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(16.dp),
@@ -190,7 +192,7 @@ fun QuietLinkRow(items: List<Pair<String, () -> Unit>>, enabled: Boolean) {
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            label,
+                            item.label,
                             style = MaterialTheme.typography.labelLarge,
                             color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
                         )
@@ -198,5 +200,47 @@ fun QuietLinkRow(items: List<Pair<String, () -> Unit>>, enabled: Boolean) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun RoleBadge(role: String) {
+    val label = when (role.lowercase()) {
+        "admin" -> "Admin"
+        "teacher" -> "Teacher"
+        else -> "Student"
+    }
+    val container = when (role.lowercase()) {
+        "admin" -> MaterialTheme.colorScheme.secondaryContainer
+        "teacher" -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val onContainer = when (role.lowercase()) {
+        "admin" -> MaterialTheme.colorScheme.onSecondaryContainer
+        "teacher" -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = container
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = onContainer
+        )
+    }
+}
+
+@Composable
+fun RoleTopTrailing(role: String, avatarLabel: String, onAvatarClick: (() -> Unit)? = null) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RoleBadge(role)
+        InitialsAvatar(avatarLabel, onClick = onAvatarClick)
     }
 }
