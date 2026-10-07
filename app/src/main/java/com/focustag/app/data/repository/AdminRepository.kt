@@ -4,6 +4,7 @@ import com.focustag.app.data.supabase.SupabaseModule
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Order
+import io.github.jan.supabase.postgrest.rpc
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -54,6 +55,12 @@ data class AdminPolicyPackage(
     @SerialName("policy_id") val policyId: String,
     @SerialName("package_name") val packageName: String,
     val action: String
+)
+
+@Serializable
+data class DemoCsbSeedResult(
+    @SerialName("created_classes") val createdClasses: Int = 0,
+    @SerialName("assigned_teachers") val assignedTeachers: Int = 0
 )
 
 @Serializable
@@ -119,6 +126,12 @@ class AdminRepository(private val institutionId: String) {
 
     suspend fun enroll(studentId: String, classId: String): Result<Unit> = runCatching {
         SupabaseModule.client.from("enrollments").insert(NewEnrollment(studentId, classId))
+    }
+
+    suspend fun seedDemoCsbClassrooms(): Result<DemoCsbSeedResult> = runCatching {
+        SupabaseModule.client.postgrest
+            .rpc("seed_demo_csb_classrooms")
+            .decodeSingle()
     }
 
     suspend fun tags(): Result<List<AdminTag>> = runCatching {
