@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.focustag.app.ui.components.RoleBadge
 
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel, isFocusActive: Boolean, onBack: () -> Unit) {
@@ -74,12 +75,25 @@ fun ProfileScreen(viewModel: ProfileViewModel, isFocusActive: Boolean, onBack: (
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
-                value = state.role,
-                onValueChange = {},
-                label = { Text("Role") },
+            // Role is read-only: it is assigned by an institution admin and
+            // enforced server-side (profiles_role_lock trigger). No edit control.
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = false
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Role",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                RoleBadge(state.role)
+            }
+            Text(
+                text = "Managed by your institution admin",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
             )
 
             state.errorMessage?.let {
