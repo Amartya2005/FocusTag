@@ -18,6 +18,8 @@ data class ProfileUiState(
     val role: String = "student",
     val institutionId: String? = null,
     val isLoading: Boolean = false,
+    /** True once profiles.role has been fetched live from Supabase for userId. */
+    val roleLoaded: Boolean = false,
     val isEditing: Boolean = false,
     val errorMessage: String? = null
 )
@@ -29,13 +31,17 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
     fun loadProfile(userId: String, email: String) {
         viewModelScope.launch {
             Log.d(TAG, "Loading profile...")
-            _uiState.update { it.copy(isLoading = true, errorMessage = null, userId = userId, email = email) }
+            _uiState.update {
+                // New user: drop any previous user's role so it can't leak across logins.
+                if (it.userId != userId) ProfileUiState(isLoading = true, userId = userId, email = email)
+                else it.copy(isLoading = true, errorMessage = null, email = email)
+            }
             val result = repository.getProfile(userId)
             result.onSuccess { profile ->
                 if (profile != null) {
-                    _uiState.update { it.copy(isLoading = false, name = profile.name ?: "", role = profile.role, institutionId = profile.institutionId) }
+                    _uiState.update { it.copy(isLoading = false, name = profile.name ?: "", role = profile.role.lowercase(), roleLoaded = true, institutionId = profile.institutionId) }
                 } else {
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "Profile not found. Please complete signup.") }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = "Profile not found. Please complete signup.", roleLoaded = true) }
                 }
             }.onFailure { error ->
                 val errorDetails = when (error) {
@@ -43,10 +49,12 @@ class ProfileViewModel(private val repository: ProfileRepository) : ViewModel() 
                     else -> "message=${error.message}"
                 }
                 Log.e(TAG, "Failed to load profile: type=${error::class.java.simpleName}, $errorDetails", error)
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Failed to load profile") }
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Failed to load profile", roleLoaded = true) }
             }
         }
     }
+
+    fun clear() { _uiState.value = ProfileUiState() }
 
     fun onNameChanged(newName: String) { _uiState.update { it.copy(name = newName, errorMessage = null) } }
     fun toggleEditing() { _uiState.update { it.copy(isEditing = !it.isEditing, errorMessage = null) } }

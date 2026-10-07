@@ -22,3 +22,16 @@ data class RosterStudent(
     val name: String,
     val status: StudentFocusStatus
 )
+
+/** One student row on the teacher dashboard. Active = open FOCUS_ACTIVE session (end_at null). */
+data class DashboardStudent(
+    val id: String,
+    val name: String,
+    val isActive: Boolean
+)
+
+data class DashboardClassGroup(
+    val classId: String,
+    val className: String,
+    val students: List<DashboardStudent>
+)
