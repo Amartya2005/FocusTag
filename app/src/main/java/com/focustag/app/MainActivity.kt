@@ -218,7 +218,7 @@ class MainActivity : ComponentActivity() {
                                             } else {
                                                 com.focustag.app.ui.dashboard.DashboardScreen(
                                                     viewModel = it,
-                                                    isTeacher = profileState.role == "teacher",
+                                                    role = profileState.role,
                                                     onNavigateToHistory = { currentScreen = "history" },
                                                     onNavigateToFocus = { currentScreen = "home" },
                                                     onNavigateToProfile = { currentScreen = "profile" },
