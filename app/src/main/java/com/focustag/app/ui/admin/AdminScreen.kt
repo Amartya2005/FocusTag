@@ -100,12 +100,46 @@ private fun ClassesTab(repository: AdminRepository, classes: List<AdminClass>, l
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var locationId by remember { mutableStateOf("") }
+    var seeding by remember { mutableStateOf(false) }
     LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { Text("Create a class", style = MaterialTheme.typography.titleMedium) }
         item { Text("Institution scope is taken from the signed-in admin profile.", style = MaterialTheme.typography.bodySmall) }
         item { AdminField("Class name", name) { name = it } }
         item { AdminField("Location ID", locationId) { locationId = it } }
         item { Button(onClick = { scope.launch { repository.createClass(name.trim(), locationId.trim()).fold({ name = ""; locationId = ""; refresh() }, { report(it.message ?: "Could not create class") }) } }, enabled = name.isNotBlank() && locationId.isNotBlank()) { Text("Create class") } }
+
+        item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
+        item { Text("Demo classroom setup", style = MaterialTheme.typography.titleMedium) }
+        item {
+            Text(
+                "Creates or reuses CSB 1 through CSB 10 in this institution and assigns the first available teacher profiles one-to-one to those rooms.",
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        item {
+            Button(
+                onClick = {
+                    scope.launch {
+                        seeding = true
+                        repository.seedDemoCsbClassrooms().fold(
+                            {
+                                seeding = false
+                                report("CSB demo ready: ${it.createdClasses} classes created, ${it.assignedTeachers} teachers assigned.")
+                                refresh()
+                            },
+                            {
+                                seeding = false
+                                report(it.message ?: "Could not seed CSB demo")
+                            }
+                        )
+                    }
+                },
+                enabled = !seeding
+            ) {
+                Text(if (seeding) "Setting up..." else "Seed CSB 1–10 demo")
+            }
+        }
+
         item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
         item { Text("Locations", style = MaterialTheme.typography.titleSmall) }
         items(locations) { Text("${it.name} · ${it.id}", style = MaterialTheme.typography.bodySmall) }
