@@ -30,7 +30,9 @@ import com.focustag.app.data.model.TeacherClass
 fun TeacherClassesScreen(
     viewModel: TeacherViewModel,
     onClassClick: (TeacherClass) -> Unit,
-    onBack: () -> Unit
+    onBack: (() -> Unit)?,
+    title: String = "My Classes",
+    trailing: (@Composable () -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -44,7 +46,7 @@ fun TeacherClassesScreen(
                 title = {
                     Column {
                         Text(
-                            text = "My Classes",
+                            text = title,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -56,7 +58,7 @@ fun TeacherClassesScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    if (onBack != null) IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -64,6 +66,7 @@ fun TeacherClassesScreen(
                     }
                 },
                 actions = {
+                    trailing?.invoke()
                     IconButton(onClick = { viewModel.loadClasses() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,

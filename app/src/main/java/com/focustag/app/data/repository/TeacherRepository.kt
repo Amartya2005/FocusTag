@@ -1,11 +1,17 @@
 package com.focustag.app.data.repository
 //teacherrepository
 import android.util.Log
+import com.focustag.app.data.model.DashboardClassGroup
+import com.focustag.app.data.model.DashboardStudent
 import com.focustag.app.data.model.RosterStudent
 import com.focustag.app.data.model.StudentFocusStatus
 import com.focustag.app.data.model.TeacherClass
 import com.focustag.app.data.supabase.SupabaseModule
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.rpc
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -63,9 +69,50 @@ data class SessionSimpleDto(
 interface TeacherRepository {
     suspend fun getMyClasses(): Result<List<TeacherClass>>
     suspend fun getClassRoster(classId: String): Result<List<RosterStudent>>
+    /** Students in the caller's assigned classes only; scoping is enforced server-side by
+     *  SECURITY DEFINER RPCs that go through teacher_class_access. */
+    suspend fun getDashboard(): Result<List<DashboardClassGroup>> = Result.success(emptyList())
 }
 
+@Serializable
+data class StudentActivitySummaryDto(
+    @SerialName("student_id") val studentId: String,
+    val name: String? = null,
+    @SerialName("is_active") val isActive: Boolean = false
+)
+
+@Serializable
+data class ClassStudentActivityDto(
+    @SerialName("student_id") val studentId: String,
+    @SerialName("is_active") val isActive: Boolean = false
+)
+
 class SupabaseTeacherRepository : TeacherRepository {
+
+    override suspend fun getDashboard(): Result<List<DashboardClassGroup>> {
+        return try {
+            val classes = getMyClasses().getOrThrow()
+            val names = SupabaseModule.client.postgrest.rpc("get_student_activity_summary")
+                .decodeList<StudentActivitySummaryDto>()
+                .associateBy { it.studentId }
+            val groups = classes.map { cls ->
+                val rows = SupabaseModule.client.postgrest
+                    .rpc("get_class_student_activity", buildJsonObject { put("p_class_id", cls.id) })
+                    .decodeList<ClassStudentActivityDto>()
+                DashboardClassGroup(
+                    classId = cls.id,
+                    className = cls.name,
+                    students = rows.map { r ->
+                        DashboardStudent(r.studentId, names[r.studentId]?.name ?: "Student", r.isActive)
+                    }.sortedWith(compareByDescending<DashboardStudent> { it.isActive }.thenBy { it.name })
+                )
+            }.sortedBy { it.className }
+            Result.success(groups)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch dashboard: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
 
     override suspend fun getMyClasses(): Result<List<TeacherClass>> {
         return try {

@@ -2,6 +2,7 @@ package com.focustag.app.ui.teacher
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.focustag.app.data.model.DashboardClassGroup
 import com.focustag.app.data.model.RosterStudent
 import com.focustag.app.data.model.TeacherClass
 import com.focustag.app.data.repository.TeacherRepository
@@ -15,7 +16,11 @@ data class TeacherUiState(
     val selectedClass: TeacherClass? = null,
     val roster: List<RosterStudent> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val dashboard: List<DashboardClassGroup> = emptyList(),
+    val dashboardLoaded: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val dashboardError: String? = null
 )
 
 class TeacherViewModel(private val repository: TeacherRepository) : ViewModel() {
@@ -51,6 +56,15 @@ class TeacherViewModel(private val repository: TeacherRepository) : ViewModel() 
                 .onFailure { error ->
                     _uiState.update { it.copy(isLoading = false, errorMessage = "Failed to load roster") }
                 }
+        }
+    }
+
+    fun loadDashboard() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            repository.getDashboard()
+                .onSuccess { g -> _uiState.update { it.copy(isRefreshing = false, dashboard = g, dashboardLoaded = true, dashboardError = null) } }
+                .onFailure { _uiState.update { it.copy(isRefreshing = false, dashboardLoaded = true, dashboardError = "Couldn't load your students") } }
         }
     }
 

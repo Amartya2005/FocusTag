@@ -54,6 +54,7 @@ import com.focustag.app.ui.profile.ProfileViewModel
 import com.focustag.app.ui.qr.QrScanScreen
 import com.focustag.app.ui.teacher.ClassRosterScreen
 import com.focustag.app.ui.teacher.TeacherClassesScreen
+import com.focustag.app.ui.teacher.TeacherDashboardScreen
 import com.focustag.app.ui.teacher.TeacherViewModel
 import com.focustag.app.ui.theme.FocusTagTheme
 import com.focustag.app.util.NfcController
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var nfcController: NfcController
     private var activeFocusViewModel: FocusViewModel? = null
+    @Volatile private var activeIsTeacher: Boolean = false
     private var pendingTagUid: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -186,17 +188,24 @@ class MainActivity : ComponentActivity() {
                             SyncScheduler.scheduleSync(this@MainActivity, userId)
                         } else {
                             com.focustag.app.domain.NfcProtocol.setRegisteredTags(emptySet())
+                            profileViewModel.clear()
                             currentScreen = "home"
                         }
                     }
 
+                    val isTeacherRole = profileState.role == "teacher" || profileState.role == "admin"
+                    activeIsTeacher = profileState.roleLoaded && isTeacherRole
                     LaunchedEffect(profileState.role) {
                         if (profileState.role == "admin") currentScreen = "dashboard"
                     }
 
-                    DisposableEffect(Unit) {
+                    DisposableEffect(sessionStatus) {
                         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
                             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                                // Re-fetch profiles.role live; never trust a stale role.
+                                (sessionStatus as? SessionStatus.Authenticated)?.session?.user?.let { u ->
+                                    profileViewModel.loadProfile(u.id, u.email ?: "")
+                                }
                                 focusViewModel?.refreshAccessibilityCapability()
                                 focusViewModel?.refreshNfcCapability()
                                 focusViewModel?.refreshRegistry()
@@ -247,10 +256,28 @@ class MainActivity : ComponentActivity() {
                                             onCancel = { currentScreen = "home" }
                                         )
                                     }
-                                    else -> focusViewModel?.let { focusVM ->
+                                    else -> if (!profileState.roleLoaded) {
+                                        CircularProgressIndicator()
+                                    } else if (isTeacherRole) {
+                                        teacherViewModel?.let { tvm ->
+                                            val email = (sessionStatus as SessionStatus.Authenticated).session.user?.email ?: "Teacher"
+                                            TeacherDashboardScreen(
+                                                viewModel = tvm,
+                                                onOpenClasses = { currentScreen = "teacher_classes" },
+                                                trailing = {
+                                                    com.focustag.app.ui.components.RoleTopTrailing(
+                                                        role = profileState.role,
+                                                        avatarLabel = email,
+                                                        onAvatarClick = { currentScreen = "profile" }
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    } else focusViewModel?.let { focusVM ->
                                         HomeScreen(
                                             authViewModel = authViewModel,
                                             focusViewModel = focusVM,
+                                            role = profileState.role,
                                             onNavigateToProfile = { currentScreen = "profile" },
                                             onNavigateToApps = { currentScreen = "apps" },
                                             onNavigateToHistory = { currentScreen = "history" },
@@ -299,6 +326,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun deliverTag(uid: String) {
+        // Teachers/admins have no student tap-to-focus flow; ignore tag taps.
+        if (activeIsTeacher) return
         val vm = activeFocusViewModel
         if (vm != null) {
             lifecycleScope.launch(Dispatchers.Main) { vm.onTagEvent(uid) }
