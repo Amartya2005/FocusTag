@@ -41,6 +41,11 @@ BEGIN
     FROM public.profiles p
     WHERE p.institution_id = v_inst
       AND p.role = 'teacher'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.teacher_class_access existing_access
+        WHERE existing_access.teacher_id = p.id
+      )
     ORDER BY p.name NULLS LAST, p.id
     OFFSET v_teacher_rank - 1
     LIMIT 1;
