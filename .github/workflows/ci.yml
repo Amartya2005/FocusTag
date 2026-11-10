@@ -6,6 +6,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -44,6 +45,22 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
           restore-keys: |
             gradle-${{ runner.os }}-
+
+      # local.properties is gitignored, so CI writes it. Without the key the APK
+      # installs but cannot reach Supabase (sign-in and taps fail).
+      - name: Write local.properties
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "SUPABASE_URL=${SUPABASE_URL:-https://owsbizpdcdzcvplvxfnt.supabase.co}"
+            echo "SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+          } > local.properties
+          if [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::warning::Repository secret SUPABASE_PUBLISHABLE_KEY is not set. The debug APK will not be able to reach Supabase."
+          fi
 
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace

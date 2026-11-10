@@ -195,6 +195,7 @@ class FocusViewModelTest {
             tagUid: String,
             installUuid: String,
             acsHealth: com.focustag.app.data.model.AcsHealth,
+            entrySource: EntrySource?,
             idempotencyKey: java.util.UUID,
             force: Boolean,
             targetStudentId: String?
@@ -203,6 +204,8 @@ class FocusViewModelTest {
             lastTagUid = tagUid
             return Result.success(nextResponse)
         }
+
+        override suspend fun blockedPackagesForClass(classId: String?): Set<String> = emptySet()
     }
 
     class FakeEnforcementCoordinator(
@@ -230,7 +233,7 @@ class FocusViewModelTest {
             _status.value = s
         }
 
-        override suspend fun startEnforcement(tagId: String?) {
+        override suspend fun startEnforcement(tagId: String?, classBlocked: Set<String>) {
             startCalled = true
             startTagId = tagId
             _status.value = startResultStatus
